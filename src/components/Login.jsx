@@ -46,7 +46,7 @@ function Login() {
             console.log("Đã nhận code từ Zalo, gửi sang Backend xác thực...");
 
             // Gọi Backend để đổi token
-            fetch(`https://taile-home.tailb889f1.ts.net/zalo/login?code=${code}&code_verifier=${codeVerifier}`)
+            fetch(`https://taile-home.tailb889f1.ts.net/dev/login?code=${code}&code_verifier=${codeVerifier}`)
                 .then(res => res.json())
                 .then(data => {
                     if (data.success) {
