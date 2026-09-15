@@ -7,7 +7,9 @@
 html {
   height: 100vh;
   display: flex;
-  overflow: hidden;
+  font-family: "Montserrat", sans-serif;
+  font-weight: 500;
+  background-color: black;
 }
 
 .counter {
