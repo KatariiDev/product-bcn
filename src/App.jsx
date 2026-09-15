@@ -6,16 +6,17 @@ import User from '../user/User';
 
 function App() {
   return (
-    // <BrowserRouter>
-    //   <Routes>
-    //     <Route path="/" element={<Login />} />
-    //     <Route path="/user" element={<User />} />
-    //   </Routes>
-    // </BrowserRouter>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Login />} />
+        <Route path="/user" element={<User />} />
+      </Routes>
+    </BrowserRouter>
 
-    <StrictMode>
-      <Login />
-    </StrictMode>
+    // <StrictMode>
+    //   <Login />
+    //   {/* <User /> */}
+    // </StrictMode>
   );
 }
 

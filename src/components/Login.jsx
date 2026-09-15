@@ -2,28 +2,7 @@ import './Login.css';
 import zaloIcon from '../assets/zalo-icon.png';
 import { useState, useEffect } from 'react';
 
-// ================= HÀM HỖ TRỢ PKCE CHO ZALO =================
-function generateCodeVerifier(length = 50) {
-    const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
-    let result = '';
-    const randomValues = new Uint8Array(length);
-    crypto.getRandomValues(randomValues);
-    for (let i = 0; i < length; i++) {
-        result += charset[randomValues[i] % charset.length];
-    }
-    return result;
-}
-
-async function generateCodeChallenge(verifier) {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(verifier);
-    const digest = await crypto.subtle.digest('SHA-256', data);
-    return btoa(String.fromCharCode(...new Uint8Array(digest)))
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=+$/, '');
-}
-// =============================================================
+const loginResultStorageKey = 'zalo_login_result';
 
 function Login() {
     const [time, setTime] = useState(new Date());
@@ -34,119 +13,143 @@ function Login() {
         return () => clearInterval(timer);
     }, []);
 
-    // BẮT SỰ KIỆN: Khi Zalo redirect ngược lại trang này kèm param ?code=...
     useEffect(() => {
+        const channel = 'BroadcastChannel' in window
+            ? new BroadcastChannel('zalo_login')
+            : null;
+
+        const handleLoginResult = (result) => {
+            if (result?.success) {
+                alert(`Chào mừng ${result.user.name}`);
+            } else if (result?.error) {
+                console.error('Lỗi xác thực Zalo:', result.error);
+            }
+        };
+
+        const handleChannelMessage = (event) => {
+            handleLoginResult(event.data);
+        };
+
+        const handleStorageMessage = (event) => {
+            if (event.key !== loginResultStorageKey || !event.newValue) {
+                return;
+            }
+
+            handleLoginResult(JSON.parse(event.newValue));
+        };
+
+        channel?.addEventListener('message', handleChannelMessage);
+        window.addEventListener('storage', handleStorageMessage);
+
         const queryParams = new URLSearchParams(window.location.search);
         const code = queryParams.get('code');
-        const codeVerifier = sessionStorage.getItem('code_verifier');
+        const error = queryParams.get('error');
+        const state = queryParams.get('state');
+        const codeVerifier = state
+            ? localStorage.getItem(verifierStorageKey(state))
+            : null;
 
-        console.log("Code từ Zalo:", codeVerifier);
+        if (error) {
+            console.error('Zalo từ chối đăng nhập:', error);
+        } else if (code && codeVerifier) {
+            const apiUrl = import.meta.env.VITE_API_URL;
 
-        if (code && codeVerifier) {
-            console.log("Đã nhận code từ Zalo, gửi sang Backend xác thực...");
+            fetch(`${apiUrl}/dev/login?${new URLSearchParams({
+                code,
+                code_verifier: codeVerifier
+            })}`)
+                .then(async (response) => {
+                    const data = await response.json();
 
-            // Gọi Backend để đổi token
-            fetch(`https://taile-home.tailb889f1.ts.net/dev/login?code=${code}&code_verifier=${codeVerifier}`)
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        console.log("Đăng nhập thành công! Thông tin user:", data.user);
-
-                        // Dọn dẹp lưu trữ tạm và xoá params rác trên thanh URL
-                        sessionStorage.removeItem('code_verifier');
-                        window.history.replaceState({}, document.title, window.location.pathname);
-
-                        // Lưu token nếu cần (ví dụ localStorage)
-                        // localStorage.setItem('token', data.tokens.access_token);
-
-                        alert(`Chào mừng ${data.user.name}`);
-                        // Nếu dùng React Router: navigate('/home');
-                    } else {
-                        console.error("Lỗi đăng nhập:", data.error);
+                    if (!response.ok) {
+                        throw new Error(data.error || 'Đăng nhập Zalo thất bại');
                     }
+
+                    return data;
                 })
-                .catch(err => console.error("Lỗi kết nối Backend:", err));
+                .then((data) => {
+                    const result = { success: true, user: data.user };
+                    localStorage.removeItem(verifierStorageKey(state));
+                    channel?.postMessage(result);
+                    localStorage.setItem(loginResultStorageKey, JSON.stringify(result));
+
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                    window.close();
+                })
+                .catch((callbackError) => {
+                    const result = { success: false, error: callbackError.message };
+                    channel?.postMessage(result);
+                    localStorage.setItem(loginResultStorageKey, JSON.stringify(result));
+                    localStorage.removeItem(verifierStorageKey(state));
+                    console.error('Lỗi xác thực Zalo:', callbackError);
+                });
         }
+
+        return () => {
+            channel?.removeEventListener('message', handleChannelMessage);
+            channel?.close();
+            window.removeEventListener('storage', handleStorageMessage);
+        };
     }, []);
-    const handleZaloLogin = async () => {
 
-        try {
-            const ZALO_APP_ID = import.meta.env.VITE_ZALO_APP_ID;
+    useEffect(() => {
+        const handleZaloMessage = (event) => {
+            // Chỉ nhận message từ chính domain của mình
+            if (event.origin !== window.location.origin) {
+                return;
+            }
 
-            // Redirect URL chính là trang web hiện tại của bạn
-            const redirectUri = import.meta.env.VITE_ZALO_REDIRECT_URI;
+            if (event.data?.type !== 'ZALO_LOGIN_SUCCESS') {
+                return;
+            }
 
-            // 1. Tạo và lưu code_verifier
-            const verifier = generateCodeVerifier(50);
+            const userData = event.data.data;
 
-            sessionStorage.setItem(
-                'code_verifier',
-                verifier
+            console.log('Dữ liệu User nhận được:', userData);
+
+            // Lưu thông tin user
+            localStorage.setItem(
+                'zalo_user',
+                JSON.stringify(userData.user)
             );
 
-            // 2. Hash SHA-256 ra code_challenge
-            const challenge = await generateCodeChallenge(verifier);
+            // Chuyển sang trang User
+            window.location.href = '/user';
+        };
 
-            // 3. Gắn các tham số và chuyển hướng tới Zalo
-            const authUrl = `https://oauth.zaloapp.com/v4/permission?app_id=${ZALO_APP_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&code_challenge=${challenge}&state=login_zalo`;
+        window.addEventListener('message', handleZaloMessage);
 
-            console.log("APP ID:", ZALO_APP_ID);
-            console.log("Redirect URI:", redirectUri);
-            console.log("Verifier:", verifier);
-            console.log("Challenge:", challenge);
-            console.log("Auth URL:", authUrl);
+        return () => {
+            window.removeEventListener('message', handleZaloMessage);
+        };
+    }, []);
 
-            window.location.href = authUrl;
-        } catch (error) {
-            console.error("Lỗi tạo link Zalo:", error);
+    const handleZaloLogin = () => {
+        const popupWidth = 480;
+        const popupHeight = 720;
+
+        const popupLeft =
+            window.screenX +
+            (window.outerWidth - popupWidth) / 2;
+
+        const popupTop =
+            window.screenY +
+            (window.outerHeight - popupHeight) / 2;
+
+        const loginPopup = window.open(
+            '',
+            'zalo_oauth_popup',
+            `width=${popupWidth},height=${popupHeight},left=${popupLeft},top=${popupTop},resizable=yes,scrollbars=yes`
+        );
+
+        if (!loginPopup) {
+            console.error('Trình duyệt đã chặn tab đăng nhập Zalo');
+            return;
         }
-    }
 
-    // XỬ LÝ NHẤN NÚT ĐĂNG NHẬP ZALO
-    // const handleZaloLogin = async () => {
-    //     try {
-    //         // Thay YOUR_ZALO_APP_ID bằng ID App trên trang Zalo Developer của bạn
-
-    //         function Login() {
-    //             const [time, setTime] = useState(new Date());
-
-    //             useEffect(() => {
-    //                 const timer = setInterval(() => setTime(new Date()), 1000);
-    //                 return () => clearInterval(timer);
-    //             }, []);
-
-    //             const handleZaloLogin = async () => {
-
-    //                 try {
-    //                     const res = await fetch(`https://taile-home.tail826ef1.ts.net/zalo/login`, {
-    //                         method: 'GET',
-    //                         headers: {
-    //                             'Accept': 'application/json'
-    //                         }
-    //                     });
-    //                     const data = await res.json();
-
-    //                     // const response = await fetch(
-    //                     //     "https://taile-home.tail826ef1.ts.net/zalo/auth/zalo"
-    //                     //     // {
-    //                     //     //     credentials: "include"
-    //                     //     // }
-    //                     // );
-
-    //                     // console.log("Zalo login response:", response);
-
-    //                     // window.location.href = "https://taile-home.tail826ef1.ts.net/zalo/login";
-
-    //                     // const data = await response.json();
-    //                     // console.log("Zalo login response:", data);
-
-    //                     console.log("Zalo URL:", data.login);
-
-    //                     window.location.href = data.login;
-    //                 } catch (error) {
-    //                     console.error("Lỗi đăng nhập Zalo:", error);
-    //                 }
-    //             };
+        loginPopup.location.href =
+            `${import.meta.env.VITE_API_URL}/dev/auth`;
+    };
 
     const hour = time.getHours();
 
@@ -155,6 +158,34 @@ function Login() {
     else if (hour >= 12 && hour < 18) welcomeDay = 2;
     else if (hour >= 18 && hour <= 23) welcomeDay = 3;
     else if (hour >= 0 && hour < 6) welcomeDay = 4;
+
+    useEffect(() => {
+        const handleZaloLogin = (event) => {
+            console.log("📩 Nhận message:", event.data);
+            console.log("📩 Origin:", event.origin);
+
+            if (event.data?.type === "ZALO_LOGIN_SUCCESS") {
+                const user = event.data.user;
+
+                console.log("✅ User:", user);
+
+                localStorage.setItem(
+                    "zalo_user",
+                    JSON.stringify(user)
+                );
+
+                console.log("➡️ Đang chuyển sang /user");
+
+                window.location.href = "/user";
+            }
+        };
+
+        window.addEventListener("message", handleZaloLogin);
+
+        return () => {
+            window.removeEventListener("message", handleZaloLogin);
+        };
+    }, []);
 
     return (
         <div className="container">
