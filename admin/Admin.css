@@ -92,6 +92,15 @@
   color: #fff;
 }
 
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .admin-container {
   display: grid;
   grid-template-columns: 500px 1fr;
@@ -675,3 +684,219 @@
   color: #f87171;
   border-color: #ef4444;
 }
+
+/* ==========================================================
+   CHẾ ĐỘ SÁNG CHO TRANG ADMIN
+   ========================================================== */
+.admin-page.admin-light-mode {
+  background-color: #f8fafc;
+  color: #475569;
+}
+
+.admin-page.admin-light-mode .admin-header,
+.admin-page.admin-light-mode .admin-card,
+.admin-page.admin-light-mode .product-table-wrapper {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+.admin-page.admin-light-mode .admin-brand h1,
+.admin-page.admin-light-mode h2,
+.admin-page.admin-light-mode h3 {
+  color: #0f172a !important;
+}
+
+.admin-page.admin-light-mode .form-group label {
+  color: #1e293b !important;
+  font-weight: 700 !important;
+}
+
+/* KHU VỰC ẢNH CHÍNH & BỘ SƯU TẬP TRONG LIGHT MODE */
+.admin-page.admin-light-mode .cover-label-row label {
+  color: #0f172a !important;
+  font-weight: 700 !important;
+}
+
+.admin-page.admin-light-mode .cover-label-row label svg {
+  stroke: #0f172a !important;
+  color: #0f172a !important;
+}
+
+.admin-page.admin-light-mode .primary-badge-tag {
+  background: #0f172a !important;
+  color: #ffffff !important;
+}
+
+.admin-page.admin-light-mode .images-header label {
+  color: #0f172a !important;
+  font-weight: 700 !important;
+}
+
+.admin-page.admin-light-mode .image-counter {
+  background: rgba(16, 185, 129, 0.15) !important;
+  color: #059669 !important;
+}
+
+.admin-page.admin-light-mode .image-item-card {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+}
+
+.admin-page.admin-light-mode .item-thumb-preview,
+.admin-page.admin-light-mode .cover-preview-img-wrap {
+  background: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+}
+
+.admin-page.admin-light-mode .btn-upload-file,
+.admin-page.admin-light-mode .btn-add-img {
+  background: #ffffff !important;
+  border: 1.5px dashed #94a3b8 !important;
+  color: #1e293b !important;
+  font-weight: 600 !important;
+}
+
+.admin-page.admin-light-mode .btn-upload-file:hover,
+.admin-page.admin-light-mode .btn-add-img:hover:not(:disabled) {
+  background: #f1f5f9 !important;
+  border-color: #0284c7 !important;
+  color: #0284c7 !important;
+}
+
+.admin-page.admin-light-mode .btn-set-cover {
+  background: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+  color: #334155 !important;
+}
+
+.admin-page.admin-light-mode .btn-set-cover:hover {
+  background: #0f172a !important;
+  color: #ffffff !important;
+}
+
+/* TẤT CẢ Ô INPUT, SELECT, TEXTAREA TRONG CHẾ ĐỘ SÁNG (LIGHT MODE) */
+.admin-page.admin-light-mode input:not([type="checkbox"]),
+.admin-page.admin-light-mode select,
+.admin-page.admin-light-mode textarea,
+.admin-page.admin-light-mode .form-group input,
+.admin-page.admin-light-mode .form-group select,
+.admin-page.admin-light-mode .form-group textarea,
+.admin-page.admin-light-mode .cover-input-fields input,
+.admin-page.admin-light-mode .item-input-wrap input,
+.admin-page.admin-light-mode .image-input-row input {
+  background-color: #ffffff !important; /* NỀN TRẮNG SÁNG */
+  background: #ffffff !important;
+  border: 1.5px solid #cbd5e1 !important; /* VIỀN XÁM RÕ RÀNG */
+  color: #0f172a !important; /* CHỮ MÀU TỐI SẮC NÉT */
+  font-weight: 500 !important;
+}
+
+.admin-page.admin-light-mode input::placeholder,
+.admin-page.admin-light-mode textarea::placeholder {
+  color: #94a3b8 !important; /* Placeholder xám dễ nhìn */
+}
+
+.admin-page.admin-light-mode input:focus,
+.admin-page.admin-light-mode select:focus,
+.admin-page.admin-light-mode textarea:focus {
+  border-color: #0284c7 !important;
+  background-color: #ffffff !important;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15) !important;
+}
+
+.admin-page.admin-light-mode .checkbox-group label {
+  color: #1e293b !important;
+  font-weight: 600 !important;
+}
+
+.admin-page.admin-light-mode .primary-cover-box,
+.admin-page.admin-light-mode .images-section {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+.admin-page.admin-light-mode .btn-secondary {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+.admin-page.admin-light-mode .btn-secondary:hover {
+  background: #f1f5f9 !important;
+  border-color: #94a3b8 !important;
+  color: #0f172a !important;
+}
+
+.admin-page.admin-light-mode .btn-cancel {
+  background: #f1f5f9 !important;
+  color: #475569 !important;
+}
+
+.admin-page.admin-light-mode .btn-cancel:hover {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+/* BẢNG SẢN PHẨM TRONG LIGHT MODE - CHỮ VÀ GIÁ ĐẬM RÕ NÉT */
+.admin-page.admin-light-mode .product-table th {
+  background: #f1f5f9 !important;
+  color: #1e293b !important;
+  font-weight: 700 !important;
+  border-bottom-color: #cbd5e1 !important;
+}
+
+.admin-page.admin-light-mode .product-table td {
+  border-bottom-color: #f1f5f9 !important;
+  color: #334155 !important;
+}
+
+.admin-page.admin-light-mode .table-name {
+  color: #0f172a !important;
+  font-weight: 700 !important;
+}
+
+.admin-page.admin-light-mode .table-tag {
+  color: #64748b !important;
+  font-weight: 500 !important;
+}
+
+.admin-page.admin-light-mode .cat-badge {
+  background: #f1f5f9 !important;
+  color: #1e293b !important;
+  border: 1px solid #cbd5e1 !important;
+  font-weight: 600 !important;
+}
+
+.admin-page.admin-light-mode .table-price {
+  color: #0f172a !important;
+  font-weight: 800 !important;
+}
+
+.admin-page.admin-light-mode .table-oldprice {
+  color: #94a3b8 !important;
+}
+
+.admin-page.admin-light-mode .table-img-wrap {
+  background: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+}
+
+.admin-page.admin-light-mode .btn-icon {
+  background: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+  color: #475569 !important;
+}
+
+.admin-page.admin-light-mode .btn-icon.edit:hover {
+  background: #eff6ff !important;
+  color: #2563eb !important;
+  border-color: #3b82f6 !important;
+}
+
+.admin-page.admin-light-mode .btn-icon.delete:hover {
+  background: #fef2f2 !important;
+  color: #dc2626 !important;
+  border-color: #ef4444 !important;
+}
+

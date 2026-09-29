@@ -91,6 +91,41 @@
     border-color: rgba(255, 255, 255, 0.3);
 }
 
+.theme-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 18px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #d1d5db;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: inherit;
+}
+
+.theme-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.2);
+    transform: translateY(-1px);
+}
+
+.user-page.user-light-mode .theme-toggle-btn {
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    color: #0f172a;
+}
+
+.user-page.user-light-mode .theme-toggle-btn:hover {
+    background: #e2e8f0;
+    border-color: #94a3b8;
+    color: #0f172a;
+}
+
 .user-card {
     display: flex;
     align-items: center;
@@ -579,38 +614,43 @@
 
 .detail-thumbnails-row {
     display: flex;
-    gap: 10px;
+    gap: 12px;
     overflow-x: auto;
-    padding-bottom: 4px;
+    padding: 6px 4px 10px 4px; /* Padding tránh bị cắt bóng và viền */
+    align-items: center;
 }
 
 .thumb-btn {
     width: 60px;
     height: 60px;
-    border-radius: 10px;
+    border-radius: 12px;
     overflow: hidden;
-    border: 2px solid rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.15);
     background: #111;
     cursor: pointer;
     flex-shrink: 0;
     padding: 0;
-    transition: all 0.2s ease;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    box-sizing: border-box;
 }
 
 .thumb-btn:hover {
-    border-color: rgba(255, 255, 255, 0.4);
+    border-color: rgba(255, 255, 255, 0.5);
+    transform: translateY(-2px);
 }
 
 .thumb-btn.active {
     border-color: #ede9e3;
-    transform: scale(1.05);
-    box-shadow: 0 0 12px rgba(255, 255, 255, 0.3);
+    border-width: 2.5px;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(255, 255, 255, 0.25);
 }
 
 .thumb-btn img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    display: block;
 }
 
 .preview-badge {
@@ -1016,4 +1056,620 @@
 
 @keyframes spin {
     to { transform: rotate(360deg); }
+}
+
+/* ==========================================================
+   CHẾ ĐỘ SÁNG CHO USER PAGE (TỐI ƯU MÀU NHẸ NHÀNG, RÕ GIÁ)
+   ========================================================== */
+.user-page.user-light-mode {
+    background-color: #f1f5f9;
+    color: #334155;
+}
+
+.user-page.user-light-mode .user-header {
+    background-color: rgba(255, 255, 255, 0.95);
+    border-bottom-color: #e2e8f0;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+}
+
+.user-page.user-light-mode .brand-title {
+    color: #0f172a;
+}
+
+.user-page.user-light-mode .brand-sub {
+    color: #64748b;
+}
+
+.user-page.user-light-mode .user-card {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+}
+
+.user-page.user-light-mode .user-name {
+    color: #0f172a;
+}
+
+.user-page.user-light-mode .header-admin-link {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    color: #334155;
+}
+
+.user-page.user-light-mode .theme-toggle-btn {
+    background: #e0f2fe;
+    border-color: #bae6fd;
+    color: #0284c7;
+}
+
+/* Thanh Filter Bar nhạt và thanh thoát */
+.user-page.user-light-mode .filter-bar {
+    background: rgba(255, 255, 255, 0.9) !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04) !important;
+}
+
+.user-page.user-light-mode .search-box {
+    background: #f8fafc !important;
+    border-color: #cbd5e1 !important;
+}
+
+.user-page.user-light-mode .search-box input {
+    color: #0f172a !important;
+}
+
+.user-page.user-light-mode .search-box input::placeholder {
+    color: #94a3b8 !important;
+}
+
+.user-page.user-light-mode .filter-select {
+    background: #f8fafc !important;
+    border-color: #cbd5e1 !important;
+    color: #0f172a !important;
+}
+
+.user-page.user-light-mode .filter-count,
+.user-page.user-light-mode .filter-summary {
+    color: #475569 !important; /* Rõ chữ Hiển thị ... sản phẩm */
+    font-weight: 500 !important;
+}
+
+.user-page.user-light-mode .filter-summary strong {
+    color: #0f172a !important; /* Số sản phẩm màu đen đậm */
+    font-weight: 800 !important;
+}
+
+/* Tiêu đề 'Các Sản Phẩm BCN Hiện Có' rõ nét và đậm */
+.user-page.user-light-mode .section-title-wrap h2,
+.user-page.user-light-mode .section-heading h2 {
+    color: #0f172a !important; /* Màu đen sắc nét */
+    font-weight: 800 !important;
+}
+
+.user-page.user-light-mode .section-title-wrap h2 svg {
+    color: #0284c7 !important; /* Icon sáng màu xanh đẹp mắt */
+}
+
+/* Thẻ sản phẩm bên danh sách trái */
+.user-page.user-light-mode .product-card {
+    background: #ffffff !important;
+    border-color: #e2e8f0 !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04) !important;
+}
+
+.user-page.user-light-mode .product-card:hover {
+    border-color: #38bdf8 !important;
+    box-shadow: 0 10px 25px rgba(0, 104, 255, 0.08) !important;
+}
+
+.user-page.user-light-mode .product-card.selected {
+    box-shadow: 0 0 0 2px #0284c7, 0 10px 25px rgba(2, 132, 199, 0.15) !important;
+}
+
+.user-page.user-light-mode .card-title {
+    color: #0f172a !important;
+}
+
+.user-page.user-light-mode .card-tag {
+    color: #0284c7 !important;
+}
+
+/* MÀU GIÁ TIỀN: ĐẬM RÕ NÉT CỰC KỲ DỄ THẤY */
+.user-page.user-light-mode .card-price {
+    color: #0f172a !important; /* Đen đậm sắc nét */
+    font-weight: 800 !important;
+    font-size: 17px !important;
+}
+
+.user-page.user-light-mode .card-old-price {
+    color: #94a3b8 !important;
+}
+
+.user-page.user-light-mode .card-footer-info {
+    border-top-color: #f1f5f9 !important;
+}
+
+/* KHUNG SHOW SẢN PHẨM BÊN PHẢI (CHI TIẾT): NỀN NHẸ NHÀNG, GIÁ RÕ */
+.user-page.user-light-mode .detail-sticky-wrap {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05) !important;
+}
+
+.user-page.user-light-mode .detail-preview-banner {
+    background: #f8fafc !important;
+    border-color: #e2e8f0 !important;
+}
+
+.user-page.user-light-mode .thumb-btn {
+    border-color: #cbd5e1 !important;
+    background: #ffffff !important;
+}
+
+.user-page.user-light-mode .thumb-btn.active {
+    border-color: #0284c7 !important;
+    box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25) !important;
+}
+
+.user-page.user-light-mode .product-tag {
+    color: #0284c7 !important;
+}
+
+.user-page.user-light-mode .product-name {
+    color: #0f172a !important;
+}
+
+/* Giá sản phẩm ở khung chi tiết to rõ */
+.user-page.user-light-mode .product-price {
+    color: #0f172a !important; /* Màu đen xanh đậm nét */
+    font-size: 26px !important;
+    font-weight: 800 !important;
+}
+
+.user-page.user-light-mode .product-old-price {
+    color: #94a3b8 !important;
+}
+
+.user-page.user-light-mode .product-description-text {
+    color: #475569 !important;
+}
+
+.user-page.user-light-mode .pro-section1 {
+    border-bottom-color: #f1f5f9 !important;
+}
+
+.user-page.user-light-mode .field-title {
+    color: #334155 !important;
+}
+
+/* Các nhãn GIỚI TÍNH, KÍCH THƯỚC, SỐ LƯỢNG ĐẶT */
+.user-page.user-light-mode .product-gender,
+.user-page.user-light-mode .product-size,
+.user-page.user-light-mode .product-quantity {
+    color: #334155 !important; /* Đậm nét, không còn mờ */
+    font-weight: 700 !important;
+}
+
+.user-page.user-light-mode .gender-value,
+.user-page.user-light-mode .size-value {
+    color: #0284c7 !important;
+    font-weight: 700 !important;
+}
+
+/* BORDER VÀ MÀU CHỮ CÁC NÚT LỰA CHỌN (Nam/Nữ, Size S/M/L/XL, Nút +/-) */
+.user-page.user-light-mode .choice {
+    background: #ffffff !important;
+    border: 1.5px solid #cbd5e1 !important; /* Viền xám nét, rõ ràng */
+    color: #334155 !important; /* Chữ xám đậm dễ đọc */
+    font-weight: 600 !important;
+}
+
+.user-page.user-light-mode .choice:hover {
+    border-color: #0284c7 !important;
+    color: #0284c7 !important;
+    background: #f0f9ff !important;
+}
+
+/* NÚT ĐANG ĐƯỢC CHỌN (ACTIVE) */
+.user-page.user-light-mode .choice.selected {
+    background: #0284c7 !important; /* Nền xanh dương công nghệ nổi bật */
+    border-color: #0284c7 !important;
+    color: #ffffff !important; /* Chữ trắng cực rõ */
+    box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25) !important;
+}
+
+/* NÚT TĂNG GIẢM SỐ LƯỢNG */
+.user-page.user-light-mode .choice-quantity-btn {
+    background: #ffffff !important;
+    border: 1.5px solid #cbd5e1 !important;
+    color: #0f172a !important;
+    font-weight: 700 !important;
+}
+
+.user-page.user-light-mode .choice-quantity-btn:hover:not(:disabled) {
+    background: #f0f9ff !important;
+    border-color: #0284c7 !important;
+    color: #0284c7 !important;
+}
+
+.user-page.user-light-mode .quantity-display {
+    color: #0f172a !important; /* Số 1 đen đậm */
+    font-weight: 800 !important;
+}
+
+/* HỘP TẠM TÍNH VÀ GIÁ TIỀN TỔNG RÕ NÉT */
+.user-page.user-light-mode .order-total-summary {
+    background: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+    color: #475569 !important;
+}
+
+.user-page.user-light-mode .total-amount {
+    color: #0f172a !important; /* Giá tiền tổng đen đậm sắc nét */
+    font-weight: 800 !important;
+    font-size: 20px !important;
+}
+
+/* NÚT ĐẶT HÀNG NGAY */
+.user-page.user-light-mode .buy-button {
+    background-color: #0f172a !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+}
+
+.user-page.user-light-mode .buy-button:hover:not(:disabled) {
+    background-color: #0284c7 !important;
+    box-shadow: 0 6px 20px rgba(2, 132, 199, 0.35) !important;
+}
+
+/* ==========================================================
+   MODAL LỊCH SỬ ĐƠN HÀNG NGƯỜI DÙNG (USER ORDER HISTORY MODAL)
+   ========================================================== */
+.orders-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(8px);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    box-sizing: border-box;
+    animation: fadeIn 0.2s ease;
+}
+
+.orders-modal-container {
+    background: #14161a;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    width: 100%;
+    max-width: 680px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+    overflow: hidden;
+}
+
+.orders-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.modal-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.modal-icon {
+    color: #38bdf8;
+}
+
+.modal-title-wrap h3 {
+    margin: 0;
+    font-size: 18px;
+    color: #f8fafc;
+    font-weight: 700;
+}
+
+.modal-title-wrap p {
+    margin: 3px 0 0 0;
+    font-size: 12px;
+    color: #94a3b8;
+}
+
+.btn-close-modal {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #94a3b8;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-close-modal:hover {
+    background: rgba(239, 68, 68, 0.2);
+    color: #f87171;
+    border-color: #ef4444;
+}
+
+.orders-modal-body {
+    padding: 24px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.orders-empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #94a3b8;
+}
+
+.orders-empty-state .empty-icon {
+    margin-bottom: 14px;
+    color: #64748b;
+}
+
+.orders-empty-state h4 {
+    margin: 0 0 6px 0;
+    color: #e2e8f0;
+    font-size: 16px;
+}
+
+.orders-empty-state p {
+    font-size: 13px;
+    margin: 0;
+}
+
+.orders-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.order-history-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    transition: border-color 0.2s;
+}
+
+.order-history-card:hover {
+    border-color: rgba(56, 189, 248, 0.3);
+}
+
+.order-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.08);
+    padding-bottom: 10px;
+}
+
+.order-code-badge {
+    font-size: 13px;
+    color: #38bdf8;
+}
+
+.order-time {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #94a3b8;
+}
+
+.order-card-content {
+    display: grid;
+    grid-template-columns: 1fr 220px;
+    gap: 16px;
+}
+
+@media (max-width: 580px) {
+    .order-card-content {
+        grid-template-columns: 1fr;
+    }
+}
+
+.order-item-title {
+    margin: 0 0 8px 0;
+    font-size: 15px;
+    color: #f1f5f9;
+    font-weight: 700;
+}
+
+.order-item-variants {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.variant-pill {
+    font-size: 12px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 3px 8px;
+    border-radius: 6px;
+    color: #cbd5e1;
+}
+
+.order-pricing-breakdown {
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 10px;
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.price-item-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: #94a3b8;
+}
+
+.price-item-row.total-row {
+    margin-top: 4px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.total-row .price-label {
+    font-weight: 700;
+    color: #f1f5f9;
+}
+
+.total-highlight {
+    font-size: 14px;
+    font-weight: 800;
+    color: #38bdf8;
+}
+
+.order-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    font-size: 12px;
+}
+
+.order-status-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+}
+
+.order-status-tag.status-success {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.order-status-tag.status-cancelled {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.btn-cancel-order {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(239, 68, 68, 0.1);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-cancel-order:hover {
+    background: #ef4444;
+    color: #ffffff;
+    border-color: #ef4444;
+}
+
+.buyer-name-tag {
+    color: #64748b;
+}
+
+/* ==========================================================
+   GIAO DIỆN MODAL TRONG CHẾ ĐỘ SÁNG (LIGHT MODE)
+   ========================================================== */
+.user-page.user-light-mode .orders-modal-container {
+    background: #ffffff;
+    border-color: #cbd5e1;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+}
+
+.user-page.user-light-mode .orders-modal-header {
+    background: #f8fafc;
+    border-bottom-color: #e2e8f0;
+}
+
+.user-page.user-light-mode .modal-title-wrap h3 {
+    color: #0f172a;
+}
+
+.user-page.user-light-mode .order-history-card {
+    background: #ffffff;
+    border-color: #cbd5e1;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.user-page.user-light-mode .order-history-card:hover {
+    border-color: #0284c7;
+}
+
+.user-page.user-light-mode .order-card-header {
+    border-bottom-color: #e2e8f0;
+}
+
+.user-page.user-light-mode .order-item-title {
+    color: #0f172a;
+}
+
+.user-page.user-light-mode .variant-pill {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    color: #334155;
+}
+
+.user-page.user-light-mode .order-pricing-breakdown {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+}
+
+.user-page.user-light-mode .price-item-row {
+    color: #64748b;
+}
+
+.user-page.user-light-mode .total-row {
+    border-top-color: #e2e8f0;
+}
+
+.user-page.user-light-mode .total-row .price-label {
+    color: #0f172a;
+}
+
+.user-page.user-light-mode .total-highlight {
+    color: #0284c7;
+}
+
+.user-page.user-light-mode .order-card-footer {
+    border-top-color: #f1f5f9;
+}
+
+.user-page.user-light-mode .btn-close-modal {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    color: #475569;
 }

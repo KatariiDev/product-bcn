@@ -1,226 +1,816 @@
 :root {
-    --decor: 200px;
-    --logo: 40px;
+    --primary-accent: #0068ff;
+    --accent-glow: rgba(0, 104, 255, 0.25);
+    --border-color: rgba(255, 255, 255, 0.08);
 }
 
-.container {
+/* ==========================================================
+   TOÀN BỘ KHUNG GIAO DIỆN (FULL SCREEN - TRÁNH CO DỒN VÀ CUỘN NGANG)
+   ========================================================== */
+.login-page-root {
     display: flex;
+    flex-direction: row;
+    width: 100vw;
+    min-height: 100vh;
     height: 100vh;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    overflow-y: hidden;
+    background-color: #07090e;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    box-sizing: border-box;
+    transition: background 1s ease, color 0.5s ease;
 }
 
+/* Biến đổi màu nền theo thời gian thực (Real-time Day/Night Cycle) */
+.login-page-root.theme-morning .conReview {
+    background: radial-gradient(circle at 15% 25%, #1e3a5f 0%, #0f172a 60%, #030712 100%) !important;
+}
+.login-page-root.theme-morning .showcase-glow {
+    background: radial-gradient(circle, rgba(56, 189, 248, 0.25) 0%, rgba(0, 0, 0, 0) 70%) !important;
+}
+
+.login-page-root.theme-afternoon .conReview {
+    background: radial-gradient(circle at 15% 25%, #2a2118 0%, #17120e 60%, #090705 100%) !important;
+}
+.login-page-root.theme-afternoon .showcase-glow {
+    background: radial-gradient(circle, rgba(249, 115, 22, 0.22) 0%, rgba(0, 0, 0, 0) 70%) !important;
+}
+
+.login-page-root.theme-evening .conReview {
+    background: radial-gradient(circle at 15% 25%, #34123b 0%, #1a0b22 60%, #09030d 100%) !important;
+}
+.login-page-root.theme-evening .showcase-glow {
+    background: radial-gradient(circle, rgba(192, 132, 252, 0.25) 0%, rgba(0, 0, 0, 0) 70%) !important;
+}
+
+.login-page-root.theme-night .conReview {
+    background: radial-gradient(circle at 15% 25%, #0d1527 0%, #070b14 60%, #020408 100%) !important;
+}
+.login-page-root.theme-night .showcase-glow {
+    background: radial-gradient(circle, rgba(37, 99, 235, 0.2) 0%, rgba(0, 0, 0, 0) 70%) !important;
+}
+
+/* Chế độ Sáng Toàn Phần nếu chọn Light Mode */
+.login-page-root.mode-light {
+    background-color: #f8fafc;
+}
+.login-page-root.mode-light .conReview {
+    background: radial-gradient(circle at 20% 30%, #f1f5f9 0%, #e2e8f0 100%) !important;
+    border-right-color: #e2e8f0 !important;
+}
+.login-page-root.mode-light .showcase-glow {
+    background: radial-gradient(circle, rgba(14, 165, 233, 0.12) 0%, rgba(0, 0, 0, 0) 70%) !important;
+}
+.login-page-root.mode-light .showcase-tag {
+    background: #ffffff;
+    border-color: #cbd5e1;
+    color: #0284c7;
+}
+.login-page-root.mode-light .showcase-title {
+    color: #0f172a !important;
+    background: linear-gradient(135deg, #0f172a 40%, #334155 100%) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+}
+.login-page-root.mode-light .showcase-subtitle {
+    color: #475569 !important;
+}
+.login-page-root.mode-light .showcase-card {
+    background: #ffffff !important;
+    border-color: #e2e8f0 !important;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.06) !important;
+}
+.login-page-root.mode-light .showcase-product-name {
+    color: #0f172a !important;
+}
+.login-page-root.mode-light .showcase-desc {
+    color: #475569 !important;
+}
+.login-page-root.mode-light .showcase-specs {
+    background: #f8fafc !important;
+    border-color: #e2e8f0 !important;
+}
+.login-page-root.mode-light .spec-value {
+    color: #1e293b !important;
+}
+.login-page-root.mode-light .conLogin {
+    background: #ffffff !important;
+}
+.login-page-root.mode-light .logo, 
+.login-page-root.mode-light .welcomeTitle {
+    color: #0f172a !important;
+}
+.login-page-root.mode-light .welcomeText {
+    color: #64748b !important;
+}
+.login-page-root.mode-light .input-label {
+    color: #334155 !important;
+}
+.login-page-root.mode-light .input-wrapper input {
+    background: #f8fafc !important;
+    border-color: #cbd5e1 !important;
+    color: #0f172a !important;
+}
+.login-page-root.mode-light .login-divider span {
+    color: #94a3b8;
+}
+.login-page-root.mode-light .login-divider::before,
+.login-page-root.mode-light .login-divider::after {
+    border-bottom-color: #e2e8f0 !important;
+}
+.login-page-root.mode-light .login-copyright {
+    color: #94a3b8 !important;
+}
+
+/* ==========================================================
+   CỘT BÊN TRÁI: SHOWCASE SẢN PHẨM HIỆN ĐẠI (DARK LUXURY)
+   ========================================================== */
 .conReview {
-    width: 60vw;
+    flex: 1 1 58%;
+    width: 58%;
+    min-width: 0; /* Ngăn chặn flex item tràn ngang */
+    height: 100%;
     display: flex;
-    justify-content: center;
-    align-items: center;
     flex-direction: column;
-}
-
-.demo {
-    width: 100%;
-    max-width: 650px;
-    height: 350px;
-    background-color: black;
-    position: relative;
-}
-
-.prev, .next {
-    width: 50px;
-    height: 50px;
-    background-color: white;
-    border-radius: 1000px;
-    display: flex;
     justify-content: center;
     align-items: center;
+    padding: 30px 48px;
+    position: relative;
+    box-sizing: border-box;
+    overflow: hidden;
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+    transition: background 0.8s ease;
+}
+
+.showcase-glow {
     position: absolute;
+    width: 480px;
+    height: 480px;
+    background: radial-gradient(circle, rgba(0, 104, 255, 0.12) 0%, rgba(0, 0, 0, 0) 70%);
+    top: 5%;
+    left: 5%;
+    filter: blur(60px);
+    pointer-events: none;
 }
 
-.prev {
-    top: 42%;
-    left: -25px;
-}
-
-.next {
-    top: 42%;
-    right: -25px;
-}
-
-.slider {
-    height: 400px;
+.showcase-header {
     width: 100%;
-    display: flex;
-    justify-content: center;
+    max-width: 640px;
+    margin-bottom: 20px;
+    z-index: 2;
+}
+
+.showcase-tag {
+    display: inline-flex;
     align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    padding: 6px 14px;
+    border-radius: 30px;
+    color: #60a5fa;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    margin-bottom: 10px;
 }
 
-.line {
+.sparkle-icon {
+    color: #38bdf8;
+    animation: pulse 2s infinite ease-in-out;
+}
+
+.showcase-title {
+    font-size: 32px;
+    font-weight: 800;
+    color: #f8fafc;
+    letter-spacing: -0.5px;
+    margin: 0 0 6px 0;
+    line-height: 1.2;
+    background: linear-gradient(135deg, #ffffff 40%, #94a3b8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.showcase-subtitle {
+    color: #94a3b8;
+    font-size: 13.5px;
+    line-height: 1.5;
+    margin: 0;
+    max-width: 580px;
+}
+
+/* Hero Showcase Card */
+.showcase-card {
     width: 100%;
-    height: 2px;
-    background-color: black;
+    max-width: 640px;
+    background: rgba(18, 25, 41, 0.72);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    display: flex;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+    z-index: 2;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.conLogin {
-    width: 40vw;
+.showcase-card:hover {
+    border-color: rgba(96, 165, 250, 0.35);
+    transform: translateY(-2px);
+}
+
+.showcase-media-box {
+    width: 45%;
+    position: relative;
+    background: #090e18;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    min-height: 270px;
+}
+
+.showcase-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.5s ease;
+}
+
+.showcase-card:hover .showcase-img {
+    transform: scale(1.05);
+}
+
+.showcase-badge {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    background: #2563eb;
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 20px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+}
+
+.showcase-stock-tag {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(6px);
+    color: #4ade80;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.showcase-info {
+    width: 55%;
+    padding: 22px 24px;
     display: flex;
     flex-direction: column;
+    justify-content: space-between;
+    box-sizing: border-box;
+}
+
+.showcase-info-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 6px;
+}
+
+.showcase-category {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.12);
+    padding: 3px 8px;
+    border-radius: 6px;
+}
+
+.showcase-price-wrap {
+    text-align: right;
+}
+
+.showcase-price {
+    font-size: 18px;
+    font-weight: 800;
+    color: #34d399;
+}
+
+.showcase-old-price {
+    display: block;
+    font-size: 11.5px;
+    color: #64748b;
+    text-decoration: line-through;
+}
+
+.showcase-product-name {
+    color: #ffffff;
+    font-size: 18px;
+    font-weight: 700;
+    margin: 6px 0;
+    line-height: 1.3;
+}
+
+.showcase-desc {
+    color: #94a3b8;
+    font-size: 12.5px;
+    line-height: 1.5;
+    margin: 0 0 14px 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.showcase-specs {
+    display: flex;
+    gap: 14px;
+    background: rgba(10, 16, 28, 0.65);
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.spec-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.spec-label {
+    font-size: 10.5px;
+    color: #64748b;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.spec-value {
+    font-size: 11.5px;
+    color: #e2e8f0;
+    font-weight: 600;
+}
+
+/* Navigation Buttons */
+.showcase-nav-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 36px;
+    height: 36px;
+    background: rgba(15, 23, 42, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    color: #ffffff;
+    display: flex;
     justify-content: center;
     align-items: center;
-    background-color: #f0efef;
-    padding: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    z-index: 10;
+}
+
+.showcase-nav-btn:hover {
+    background: #2563eb;
+    border-color: #2563eb;
+    transform: translateY(-50%) scale(1.08);
+}
+
+.showcase-nav-btn.prev {
+    left: -15px;
+}
+
+.showcase-nav-btn.next {
+    right: -15px;
+}
+
+/* Thumbnails */
+.showcase-thumbnails {
+    display: flex;
+    gap: 10px;
+    margin-top: 18px;
+    z-index: 2;
+}
+
+.thumb-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    background: #111827;
+    padding: 2px;
+    cursor: pointer;
     position: relative;
+    overflow: hidden;
+    transition: all 0.2s ease;
+}
+
+.thumb-btn img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 6px;
+}
+
+.thumb-btn.active {
+    border-color: #38bdf8;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(56, 189, 248, 0.35);
+}
+
+.showcase-footer {
+    margin-top: 18px;
+    color: #64748b;
+    font-size: 12.5px;
+    z-index: 2;
+}
+
+/* ==========================================================
+   CỘT BÊN PHẢI: FORM ĐĂNG NHẬP ĐỒNG BỘ TECH DARK (PREMIUM)
+   ========================================================== */
+.conLogin {
+    flex: 1 1 42%;
+    width: 42%;
+    min-width: 0; /* Ngăn flex item tràn */
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(180deg, #0e1422 0%, #090d16 100%);
+    padding: 36px 44px 24px 44px;
+    position: relative;
+    box-sizing: border-box;
+    overflow-x: hidden; /* Cố định chống tràn thanh scroll ngang */
+    overflow-y: auto;
+}
+
+.login-backdrop-glow {
+    position: absolute;
+    width: 380px;
+    height: 380px;
+    background: radial-gradient(circle, rgba(0, 104, 255, 0.08) 0%, rgba(0, 0, 0, 0) 70%);
+    top: 20%;
+    right: -10%;
+    filter: blur(50px);
+    pointer-events: none;
+}
+
+/* Top bar với Logo & System status pill */
+.login-top-bar {
+    width: 100%;
+    max-width: 400px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 3;
+    margin-bottom: 12px;
+}
+
+.login-theme-switcher {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 11px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 20px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #38bdf8;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.login-theme-switcher:hover {
+    background: rgba(56, 189, 248, 0.18);
+    border-color: rgba(56, 189, 248, 0.4);
+    transform: translateY(-1px);
+}
+
+.mode-light .login-theme-switcher {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    color: #0284c7;
 }
 
 .logo {
-    position: absolute;
-    top: var(--logo);
-    left: var(--logo);
+    display: flex;
+    align-items: center;
+    gap: 10px;
     font-size: 16px;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: 0.3px;
+}
+
+.logo-bcn {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+}
+
+.system-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    font-size: 11.5px;
+    color: #94a3b8;
     font-weight: 500;
-    letter-spacing: 1px;
 }
 
-.decor-corner {
-    width: var(--decor);
-    height: var(--decor);
-    border-radius: 1000px;
-    outline: 2px solid black;
-    outline-offset: 5px;
-    background-color: black;
-    position: absolute;
-    top: calc(var(--decor) / 2 * (-1));
-    right: calc(var(--decor) / 2 * (-1));
+.live-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: #22c55e;
+    box-shadow: 0 0 8px #22c55e;
 }
 
+/* Nội dung Login Box */
 .conLogin-ch {
     display: flex;
     flex-direction: column;
-    gap: 35px;
-    margin-top: 50px;
+    width: 100%;
+    max-width: 400px;
+    z-index: 2;
+    margin: auto 0;
+    box-sizing: border-box;
 }
 
 .welcome {
-    font-weight: bold;
-    display: flex;
-    justify-content: start;
+    margin-bottom: 20px;
 }
 
-input#username, input#password, .btnLogin, .zaloLogin, .btnLoginTag, .zaloLoginTag {
-    width: 400px;
-    height: 50px;
-    padding-left: 10px;
-    border-radius: 10px;
-}
-
-.conLogin input {
-    border: none;
-    outline: none !important;
-    box-shadow: none !important;
-    letter-spacing: 1px;
-    transition: all ease 0.3s;
-}
-
-.conLogin input:focus {
-    outline: none !important;
-    box-shadow: none !important;
-    border: 2px solid #0068ff;
-}
-
-p.passwordField, p.usernameField {
+.welcomeDayGreeting {
+    display: inline-block;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.1);
+    border: 1px solid rgba(56, 189, 248, 0.2);
+    padding: 4px 10px;
+    border-radius: 20px;
     margin-bottom: 10px;
-    font-weight: bold;
 }
 
-.btnLogin {
-    background-color: black;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s ease-in-out; 
-}
-
-.btnLogin:active {
-    transform: scale(0.96);
-    opacity: 0.75;
-}
-
-.btnLogin:hover {
-    background-color: #434343;
-}
-
-button.btnLoginTag {
-    background-color: none;
-    padding: 0;
-}
-
-.welcome {
-    font-size: 60px;
-    display: flex;
-    justify-content: center;
-    flex-direction: column;
-    gap: 10px;
-    letter-spacing: 1px;
+.welcomeTitle {
+    font-size: 26px;
+    font-weight: 800;
+    color: #ffffff;
+    margin: 0 0 6px 0;
+    letter-spacing: -0.5px;
 }
 
 .welcomeText {
-    font-size: 18px;
-    opacity: 0.5;
-    font-weight: normal ;
+    font-size: 13px;
+    color: #94a3b8;
+    line-height: 1.5;
+    margin: 0;
 }
 
-.conLogin button:hover, .conLogin button:focus, .conLogin button:active {
-    outline: none !important;
-    box-shadow: none !important;
-}
-
-.conLogin button {
-    background: transparent ;
-    border: none;
-    outline: none;
-    box-shadow: none;
-    color: #ffffff;
-    cursor: pointer;
-    font-size: 16px;
-    font-weight: 500;
-}
-
-.zalo-icon {
-    width: 20px;
-    height: 20px;
-}
-
-.zaloLogin {
-    border: 2px solid rgb(205, 205, 205);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: white;
-    transition: all 0.2s ease-in-out;
-}
-
-.zaloLogin:active {
-    transform: scale(0.96);
-    opacity: 0.75;
+/* ==========================================================
+   NÚT ĐĂNG NHẬP BẰNG ZALO (NỔI BẬT & CHỮ MÀU ĐEN RÕ RÀNG)
+   ========================================================== */
+.zaloLoginSection {
+    width: 100%;
+    margin-bottom: 18px;
 }
 
 .zaloLoginTag {
+    width: 100%;
+    height: 48px;
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 12px !important;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    font-weight: bold;
-    color: black;
-    padding: 0;
+    gap: 12px;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    padding: 0 16px;
+    box-sizing: border-box;
+}
+
+.zaloLoginTag:hover {
+    background: #f8fafc !important;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 104, 255, 0.2);
+}
+
+.zaloLoginTag:active {
+    transform: scale(0.98);
+}
+
+.zaloLoginTag span {
+    color: #000000 !important; /* ĐẢM BẢO CHỮ MÀU ĐEN */
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.2px;
+}
+
+.zalo-icon {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+}
+
+/* Divider phân cách */
+.login-divider {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    margin: 0 0 18px 0;
+    width: 100%;
+}
+
+.login-divider::before,
+.login-divider::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.login-divider span {
+    padding: 0 14px;
+    color: #64748b;
+    font-size: 12px;
+    text-transform: lowercase;
+}
+
+/* Form nội bộ */
+.login-form-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    width: 100%;
+}
+
+.input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+}
+
+.input-label-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.input-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #cbd5e1;
+}
+
+.forgot-link {
+    font-size: 12px;
+    color: #38bdf8;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.forgot-link:hover {
+    text-decoration: underline;
+    color: #60a5fa;
+}
+
+.input-wrapper {
+    width: 100%;
+}
+
+.input-wrapper input {
+    width: 100%;
+    height: 46px;
+    background: rgba(18, 25, 41, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    padding: 0 16px;
+    color: #ffffff;
+    font-size: 14.5px;
+    box-sizing: border-box;
+    transition: all 0.2s ease;
+}
+
+.input-wrapper input::placeholder {
+    color: #475569;
+}
+
+.input-wrapper input:focus {
+    border-color: #0068ff;
+    background: rgba(22, 32, 54, 0.9);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 104, 255, 0.2);
+}
+
+/* Nút Submit Đăng nhập nội bộ */
+.btnLogin {
+    width: 100%;
+    margin-top: 4px;
+}
+
+.btnLoginTag {
+    width: 100%;
+    height: 46px;
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    border-radius: 12px;
+    color: #ffffff !important;
+    font-size: 14.5px !important;
+    font-weight: 600 !important;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+}
+
+.btnLoginTag:hover {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    border-color: #3b82f6 !important;
+    box-shadow: 0 6px 18px rgba(37, 99, 235, 0.35);
+    transform: translateY(-1px);
+}
+
+.btnLoginTag:active {
+    transform: scale(0.98);
+}
+
+/* Footer Register */
+.register-row {
+    margin-top: 18px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    font-size: 13.5px;
+    color: #64748b;
 }
 
 .register {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    color: black;
-
+    color: #38bdf8;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s;
 }
 
-a {
-    text-decoration: none;;
+.register:hover {
+    color: #60a5fa;
+    text-decoration: underline;
+}
+
+.login-copyright {
+    color: #475569;
+    font-size: 11.5px;
+    z-index: 2;
+    text-align: center;
+    margin-top: 10px;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 0.8; }
+    50% { transform: scale(1.15); opacity: 1; }
+}
+
+/* Tự động chuyển layout cột khi màn hình nhỏ */
+@media (max-width: 992px) {
+    .login-page-root {
+        flex-direction: column;
+        height: auto;
+        overflow-y: auto;
+    }
+    .conReview, .conLogin {
+        width: 100%;
+        flex: 1 1 100%;
+        height: auto;
+        min-height: unset;
+        padding: 40px 24px;
+        border-right: none;
+    }
 }
