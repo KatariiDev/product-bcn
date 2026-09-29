@@ -706,7 +706,14 @@ function User() {
                                                 className={`thumb-btn ${activeImageIndex === idx ? 'active' : ''}`}
                                                 onClick={() => setActiveImageIndex(idx)}
                                             >
-                                                <img src={img} alt={`Góc chụp ${idx + 1}`} />
+                                                <img
+                                                    src={img}
+                                                    alt={`Góc chụp ${idx + 1}`}
+                                                    onError={(e) => {
+                                                        e.target.onerror = null;
+                                                        e.target.src = bcn;
+                                                    }}
+                                                />
                                             </button>
                                         ))}
                                     </div>
