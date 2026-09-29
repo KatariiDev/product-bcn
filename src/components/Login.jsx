@@ -3,6 +3,7 @@ import zaloIcon from '../assets/zalo-icon.png';
 import bcnLogo from '../assets/bcn.png';
 import { useState, useEffect } from 'react';
 import { getStoredProducts } from '../../admin/Admin';
+import { supabaseApi } from '../supabaseClient';
 import { ChevronLeft, ChevronRight, Sparkles, Tag, ShieldCheck, ShoppingBag, Sun, Moon } from 'lucide-react';
 
 const loginResultStorageKey = 'zalo_login_result';
@@ -19,12 +20,45 @@ function Login() {
         return () => clearInterval(timer);
     }, []);
 
-    // Load danh sách sản phẩm thực tế từ kho sản phẩm (Admin / Initial)
+    // Load danh sách sản phẩm: ưu tiên Supabase, fallback localStorage
     useEffect(() => {
-        const list = getStoredProducts();
-        if (list && list.length > 0) {
-            setProducts(list);
-        }
+        const MAX_PRODUCTS = 5;
+
+        const loadProducts = async () => {
+            // Fallback: hiện localStorage ngay lập tức
+            const localList = getStoredProducts();
+            if (localList && localList.length > 0) {
+                setProducts(localList.slice(0, MAX_PRODUCTS));
+            }
+
+            // Fetch từ Supabase để đồng bộ
+            try {
+                const remoteProds = await supabaseApi.getProducts();
+                if (remoteProds && Array.isArray(remoteProds) && remoteProds.length > 0) {
+                    const formatted = remoteProds.map(p => ({
+                        id: p.id,
+                        name: p.name,
+                        tag: p.tag,
+                        category: p.category,
+                        price: Number(p.price),
+                        oldPrice: p.old_price ? Number(p.old_price) : null,
+                        sizes: Array.isArray(p.sizes) ? p.sizes : ['S', 'M', 'L', 'XL'],
+                        inStock: p.in_stock !== false,
+                        badge: p.badge || '',
+                        image: p.image && p.image.trim() !== '' ? p.image : bcnLogo,
+                        images: Array.isArray(p.images) ? p.images.filter(img => img && img.trim() !== '') : [],
+                        description: p.description || ''
+                    }));
+                    setProducts(formatted.slice(0, MAX_PRODUCTS));
+                    // Reset slide nếu vượt giới hạn
+                    setCurrentSlide(prev => Math.min(prev, Math.min(formatted.length, MAX_PRODUCTS) - 1));
+                }
+            } catch (err) {
+                console.warn('Login: lỗi fetch sản phẩm Supabase:', err);
+            }
+        };
+
+        loadProducts();
     }, []);
 
     // Tự động chuyển slide
@@ -261,6 +295,7 @@ function Login() {
                                 src={activeProd.image || (activeProd.images && activeProd.images[0]) || bcnLogo}
                                 alt={activeProd.name}
                                 className="showcase-img"
+                                onError={(e) => { e.target.onerror = null; e.target.src = bcnLogo; }}
                             />
                             {activeProd.tag && (
                                 <span className="showcase-badge">
@@ -326,7 +361,11 @@ function Login() {
                                 className={`thumb-btn ${idx === currentSlide ? 'active' : ''}`}
                                 onClick={() => setCurrentSlide(idx)}
                             >
-                                <img src={p.image || (p.images && p.images[0]) || bcnLogo} alt={p.name} />
+                                <img
+                                        src={p.image || (p.images && p.images[0]) || bcnLogo}
+                                        alt={p.name}
+                                        onError={(e) => { e.target.onerror = null; e.target.src = bcnLogo; }}
+                                    />
                                 <span className="thumb-indicator"></span>
                             </button>
                         ))}
@@ -347,25 +386,9 @@ function Login() {
                         <img src={bcnLogo} alt="BCN Logo" className='logo-bcn' />
                         <span>Ban Công Nghệ</span>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <button
-                            type="button"
-                            className="login-theme-switcher"
-                            onClick={() => {
-                                const nextMode = savedThemeMode === 'light' ? 'dark' : savedThemeMode === 'dark' ? 'auto' : 'light';
-                                setSavedThemeMode(nextMode);
-                                localStorage.setItem('app_theme_mode', nextMode);
-                                window.dispatchEvent(new Event('theme_mode_changed'));
-                            }}
-                            title={`Chế độ hiện tại: ${savedThemeMode === 'auto' ? 'Theo giờ thực' : savedThemeMode === 'light' ? 'Sáng' : 'Tối'}`}
-                        >
-                            {savedThemeMode === 'light' ? <Sun size={15} /> : <Moon size={15} />}
-                            <span>{savedThemeMode === 'auto' ? 'Auto' : savedThemeMode === 'light' ? 'Sáng' : 'Tối'}</span>
-                        </button>
-                        <div className="system-pill">
-                            <span className="live-dot"></span>
-                            Portal v2.6
-                        </div>
+                    <div className="system-pill">
+                        <span className="live-dot"></span>
+                        Portal v2.6
                     </div>
                 </div>
 

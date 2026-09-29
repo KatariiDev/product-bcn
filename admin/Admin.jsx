@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './Admin.css';
-import { Plus, Trash2, Edit3, Image as ImageIcon, Save, ArrowLeft, RefreshCw, X, Upload, Star, Sun, Moon, ShoppingBag, CheckCircle, Clock } from 'lucide-react';
+import { Plus, Trash2, Edit3, Image as ImageIcon, Save, ArrowLeft, RefreshCw, X, Upload, Star, Sun, Moon, ShoppingBag, CheckCircle, Clock, Users, Shield, UserCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import bcn from '../src/assets/bcn.png';
 import { supabaseApi } from '../src/supabaseClient';
@@ -91,8 +91,8 @@ export const getStoredProducts = () => {
       if (Array.isArray(parsed) && parsed.length > 0) {
         return parsed.map(item => ({
           ...item,
-          images: Array.isArray(item.images) && item.images.length > 0 
-            ? item.images 
+          images: Array.isArray(item.images) && item.images.length > 0
+            ? item.images
             : [item.image || bcn],
           image: item.image || (item.images && item.images[0]) || bcn
         }));
@@ -118,11 +118,39 @@ const MAX_IMAGES = 10;
 function Admin() {
   const [products, setProducts] = useState(() => getStoredProducts());
   const [orders, setOrders] = useState([]);
-  const [activeTab, setActiveTab] = useState('products'); // 'products' | 'orders'
+  const [users, setUsers] = useState([]);
+  const [activeTab, setActiveTab] = useState('products'); // 'products' | 'orders' | 'users'
   const [isSyncing, setIsSyncing] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+  const [isAuthorized, setIsAuthorized] = useState(null);
   const fileInputRef = useRef(null);
   const coverFileInputRef = useRef(null);
+
+  // Kiểm tra quyền Admin khi truy cập trang
+  useEffect(() => {
+    const verifyAdmin = async () => {
+      try {
+        const saved = localStorage.getItem('zalo_user');
+        if (!saved) {
+          window.location.href = '/';
+          return;
+        }
+        const u = JSON.parse(saved);
+        const zaloId = u.id || u.zalo_id;
+        const role = await supabaseApi.getUserRole(zaloId);
+        if (role !== 'admin') {
+          alert('Tài khoản của bạn không có quyền truy cập trang Quản Trị!');
+          window.location.href = '/user';
+          return;
+        }
+        setIsAuthorized(true);
+      } catch (err) {
+        console.error('Lỗi xác thực quyền admin:', err);
+        window.location.href = '/user';
+      }
+    };
+    verifyAdmin();
+  }, []);
 
   // Tải sản phẩm & đơn hàng từ Supabase
   const fetchRemoteData = async () => {
@@ -179,6 +207,58 @@ function Admin() {
     }
   };
 
+  const handleDeleteOrder = (ord) => {
+    const code = ord.order_code || ord.id;
+    setConfirmModal({
+      isOpen: true,
+      title: 'Xóa Đơn Hàng',
+      message: `Xóa vĩnh viễn đơn hàng #${code} của khách "${ord.name}"? Thao tác này không thể hoàn tác.`,
+      confirmText: 'Xóa đơn hàng',
+      cancelText: 'Giữ lại',
+      danger: true,
+      onConfirm: async () => {
+        await supabaseApi.deleteOrder(ord.order_code, ord.id);
+        setOrders(prev => prev.filter(o =>
+          !(o.order_code === ord.order_code && o.id === ord.id) &&
+          !(o.order_code === ord.order_code && !ord.id) &&
+          !(o.id === ord.id && !ord.order_code)
+        ));
+        showToast(`Đã xóa đơn hàng #${code} thành công!`, 'success', 'Xóa thành công');
+      }
+    });
+  };
+
+  const fetchUsers = async () => {
+    const data = await supabaseApi.getUsers();
+    if (Array.isArray(data)) setUsers(data);
+  };
+
+  const handleUpdateRole = async (u, newRole) => {
+    const ok = await supabaseApi.updateUserRole(u.zalo_id, newRole);
+    if (ok) {
+      setUsers(prev => prev.map(x => x.zalo_id === u.zalo_id ? { ...x, role: newRole } : x));
+      showToast(`Đã cập nhật quyền ${newRole === 'admin' ? 'Admin' : 'User'} cho ${u.name}!`, 'success', 'Cập nhật quyền');
+    } else {
+      showToast('Cập nhật quyền thất bại. Vui lòng thử lại!', 'error', 'Lỗi');
+    }
+  };
+
+  const handleDeleteUser = (u) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Xóa Tài Khoản',
+      message: `Xóa tài khoản "${u.name}" (Zalo ID: ${u.zalo_id}) khỏi hệ thống? Thao tác này không thể hoàn tác.`,
+      confirmText: 'Xóa tài khoản',
+      cancelText: 'Giữ lại',
+      danger: true,
+      onConfirm: async () => {
+        await supabaseApi.deleteUser(u.zalo_id);
+        setUsers(prev => prev.filter(x => x.zalo_id !== u.zalo_id));
+        showToast(`Đã xóa tài khoản ${u.name}!`, 'success', 'Đã xóa');
+      }
+    });
+  };
+
   useEffect(() => {
     fetchRemoteData();
     // Products: sync mỗi 5s
@@ -227,7 +307,7 @@ function Admin() {
   }, [products]);
 
   const [toast, setToast] = useState(null);
-  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: () => { } });
 
   const showToast = (message, type = 'info', title = '') => {
     setToast({ message, type, title });
@@ -257,10 +337,10 @@ function Admin() {
 
   const handleEdit = (p) => {
     setEditingProduct(p.id);
-    const imgList = Array.isArray(p.images) && p.images.length > 0 
-      ? p.images 
+    const imgList = Array.isArray(p.images) && p.images.length > 0
+      ? p.images
       : (p.image ? [p.image] : []);
-    
+
     const cover = p.image || (imgList.length > 0 ? imgList[0] : '');
 
     setFormData({
@@ -391,7 +471,7 @@ function Admin() {
   const handleRemoveImage = (index) => {
     const targetImg = formData.images[index];
     const updated = formData.images.filter((_, i) => i !== index);
-    
+
     let newPrimary = formData.primaryImage;
     if (newPrimary === targetImg) {
       newPrimary = updated.length > 0 ? updated[0] : '';
@@ -421,7 +501,7 @@ function Admin() {
 
     const sizesArr = formData.sizes.split(',').map(s => s.trim()).filter(Boolean);
     const gendersArr = formData.genders.split(',').map(g => g.trim()).filter(Boolean);
-    
+
     // Thu thập và làm sạch danh sách ảnh
     const cleanImages = formData.images.map(img => img.trim()).filter(Boolean);
     const primary = formData.primaryImage.trim() || (cleanImages.length > 0 ? cleanImages[0] : bcn);
@@ -487,6 +567,25 @@ function Admin() {
     window.dispatchEvent(new Event('theme_mode_changed'));
   };
 
+  if (isAuthorized === null) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#0f172a',
+        color: '#f8fafc',
+        fontSize: '15px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <RefreshCw size={20} className="spinning" />
+          <span>Đang xác thực quyền Admin...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`admin-page ${themeMode === 'light' ? 'admin-light-mode' : ''}`}>
       <header className="admin-header">
@@ -498,8 +597,8 @@ function Admin() {
           </div>
         </div>
         <div className="admin-actions">
-          <button 
-            className="btn-secondary" 
+          <button
+            className="btn-secondary"
             onClick={toggleThemeMode}
             title={`Chế độ theme: ${themeMode}`}
             style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
@@ -794,7 +893,7 @@ function Admin() {
         <div className="admin-card list-card">
           <div className="list-header">
             <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <button 
+              <button
                 type="button"
                 className={`btn-secondary ${activeTab === 'products' ? 'tab-active' : ''}`}
                 onClick={() => setActiveTab('products')}
@@ -806,7 +905,7 @@ function Admin() {
               >
                 Sản Phẩm ({products.length})
               </button>
-              <button 
+              <button
                 type="button"
                 className={`btn-secondary ${activeTab === 'orders' ? 'tab-active' : ''}`}
                 onClick={() => { setActiveTab('orders'); fetchOrdersOnly(); }}
@@ -822,9 +921,25 @@ function Admin() {
                 <ShoppingBag size={15} />
                 Đơn Hàng ({orders.length})
               </button>
+              <button
+                type="button"
+                className={`btn-secondary ${activeTab === 'users' ? 'tab-active' : ''}`}
+                onClick={() => { setActiveTab('users'); fetchUsers(); }}
+                style={{
+                  background: activeTab === 'users' ? '#7c3aed' : undefined,
+                  color: activeTab === 'users' ? '#fff' : undefined,
+                  borderColor: activeTab === 'users' ? '#7c3aed' : undefined,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <Users size={15} />
+                Tài Khoản ({users.length})
+              </button>
             </div>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <button 
+              <button
                 type="button"
                 className="btn-secondary"
                 onClick={fetchRemoteData}
@@ -837,7 +952,7 @@ function Admin() {
             </div>
           </div>
 
-          {activeTab === 'products' ? (
+          {activeTab === 'products' && (
             <div className="product-table-wrapper">
               <table className="product-table">
                 <thead>
@@ -910,8 +1025,10 @@ function Admin() {
                 </tbody>
               </table>
             </div>
-          ) : (
-            /* TAB ĐƠN HÀNG */
+          )}
+
+          {/* ── TAB ĐƠN HÀNG ─────────────────────────────── */}
+          {activeTab === 'orders' && (
             <div className="product-table-wrapper">
               <table className="product-table">
                 <thead>
@@ -920,21 +1037,23 @@ function Admin() {
                     <th>Khách Hàng</th>
                     <th>Sản Phẩm</th>
                     <th>Phân Loại</th>
-                    <th>Số Lượng</th>
+                    <th>SL</th>
                     <th>Tổng Tiền</th>
+                    <th>Trạng Thái</th>
                     <th>Thời Gian</th>
+                    <th>Xóa</th>
                   </tr>
                 </thead>
                 <tbody>
                   {orders.length === 0 ? (
                     <tr>
-                      <td colSpan={7} style={{ textAlign: 'center', padding: '35px', color: '#94a3b8' }}>
-                        Chưa có đơn hàng nào từ người dùng. Khi User bấm Đặt Hàng, đơn sẽ lập tức xuất hiện tại đây!
+                      <td colSpan={9} style={{ textAlign: 'center', padding: '35px', color: '#94a3b8' }}>
+                        Chưa có đơn hàng nào. Khi User bấm Đặt Hàng, đơn sẽ xuất hiện tại đây!
                       </td>
                     </tr>
                   ) : (
                     orders.map((ord) => (
-                      <tr key={ord.id || ord.order_code}>
+                      <tr key={`${ord.order_code}-${ord.id}`}>
                         <td>
                           <span style={{ fontWeight: 700, color: '#0284c7' }}>
                             #{ord.order_code || ord.id}
@@ -959,8 +1078,119 @@ function Admin() {
                             {Number(ord.total_price || (ord.price * ord.quantity) || 0).toLocaleString('vi-VN')} đ
                           </div>
                         </td>
+                        <td>
+                          <span
+                            className={`status-pill ${ord.status === 'CANCELLED' ? 'out-stock' : 'in-stock'}`}
+                            style={{ fontSize: '11px', padding: '3px 8px' }}
+                          >
+                            {ord.status === 'CANCELLED' ? 'Đã hủy' : 'Chờ XL'}
+                          </span>
+                        </td>
                         <td style={{ fontSize: '12px', color: '#94a3b8' }}>
                           {ord.created_at ? new Date(ord.created_at).toLocaleString('vi-VN') : 'Vừa xong'}
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <button
+                            className="btn-icon delete"
+                            onClick={() => handleDeleteOrder(ord)}
+                            title="Xóa đơn hàng này"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* ── TAB TÀI KHOẢN ─────────────────────────────── */}
+          {activeTab === 'users' && (
+            <div className="product-table-wrapper">
+              <div style={{ padding: '12px 16px', background: 'rgba(124,58,237,0.08)', borderRadius: '10px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#a78bfa' }}>
+                <Shield size={15} />
+                Quản lý tài khoản đăng nhập qua Zalo. Người dùng tự động xuất hiện khi đăng nhập lần đầu.
+              </div>
+              <table className="product-table">
+                <thead>
+                  <tr>
+                    <th>Người Dùng</th>
+                    <th>Zalo ID</th>
+                    <th>Quyền Hạn</th>
+                    <th>Đăng Nhập Cuối</th>
+                    <th>Thao Tác</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} style={{ textAlign: 'center', padding: '35px', color: '#94a3b8' }}>
+                        Chưa có tài khoản nào. Người dùng sẽ xuất hiện tại đây khi đăng nhập qua Zalo!
+                      </td>
+                    </tr>
+                  ) : (
+                    users.map((u) => (
+                      <tr key={u.zalo_id}>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            {u.avatar ? (
+                              <img
+                                src={u.avatar}
+                                alt={u.name}
+                                style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(124,58,237,0.4)' }}
+                                onError={(e) => { e.target.style.display = 'none'; }}
+                              />
+                            ) : (
+                              <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(124,58,237,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>
+                                {u.name?.[0] || '?'}
+                              </div>
+                            )}
+                            <div>
+                              <div style={{ fontWeight: 600 }}>{u.name || 'Ẩn danh'}</div>
+                              <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                                Tham gia: {u.created_at ? new Date(u.created_at).toLocaleDateString('vi-VN') : 'N/A'}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <code style={{ fontSize: '12px', background: 'rgba(255,255,255,0.06)', padding: '2px 8px', borderRadius: '6px', color: '#94a3b8' }}>
+                            {u.zalo_id}
+                          </code>
+                        </td>
+                        <td>
+                          <select
+                            value={u.role || 'user'}
+                            onChange={(e) => handleUpdateRole(u, e.target.value)}
+                            style={{
+                              background: u.role === 'admin' ? 'rgba(124,58,237,0.2)' : 'rgba(16,185,129,0.15)',
+                              border: `1px solid ${u.role === 'admin' ? 'rgba(124,58,237,0.5)' : 'rgba(16,185,129,0.4)'}`,
+                              color: u.role === 'admin' ? '#c4b5fd' : '#6ee7b7',
+                              borderRadius: '8px',
+                              padding: '4px 10px',
+                              fontSize: '12px',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              outline: 'none'
+                            }}
+                          >
+                            <option value="user">👤 User</option>
+                            <option value="admin">🛡️ Admin</option>
+                          </select>
+                        </td>
+                        <td style={{ fontSize: '12px', color: '#94a3b8' }}>
+                          {u.last_login ? new Date(u.last_login).toLocaleString('vi-VN') : 'Chưa đăng nhập'}
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <button
+                            className="btn-icon delete"
+                            onClick={() => handleDeleteUser(u)}
+                            title="Xóa tài khoản này"
+                          >
+                            <Trash2 size={15} />
+                          </button>
                         </td>
                       </tr>
                     ))
@@ -977,10 +1207,10 @@ function Admin() {
         <Toast toast={toast} onClose={() => setToast(null)} />
       </div>
 
-      <ConfirmModal 
-        modal={confirmModal} 
-        onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })} 
-        onConfirm={confirmModal.onConfirm} 
+      <ConfirmModal
+        modal={confirmModal}
+        onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        onConfirm={confirmModal.onConfirm}
       />
     </div>
   );

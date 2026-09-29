@@ -136,25 +136,52 @@ export const supabaseApi = {
 
   // Lấy TẤT CẢ đơn hàng từ Supabase (Admin + User đều dùng)
   async getOrders() {
+    // Lấy cache local trước
+    let localOrders = [];
+    try {
+      localOrders = JSON.parse(localStorage.getItem('aobcn_orders_cache') || '[]');
+    } catch (e) {}
+
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/orders?select=*&order=created_at.desc`, { headers });
       if (res.ok) {
-        const data = await res.json();
-        // Cập nhật cache local
-        try { localStorage.setItem('aobcn_orders_cache', JSON.stringify(data)); } catch (e) {}
-        return data;
+        const remoteOrders = await res.json();
+        if (Array.isArray(remoteOrders)) {
+          // Merge: ưu tiên trạng thái CANCELLED từ local (tránh mất khi PATCH chưa kịp sync)
+          const remoteMap = new Map(remoteOrders.map(o => [String(o.order_code), o]));
+
+          // Các đơn chỉ tồn tại trong local (chưa lên Supabase)
+          const localOnlyOrders = localOrders.filter(o =>
+            !remoteMap.has(String(o.order_code))
+          );
+
+          // Merge: nếu local đã CANCELLED thì giữ CANCELLED dù Supabase có khác
+          const merged = remoteOrders.map(o => {
+            const localMatch = localOrders.find(l => String(l.order_code) === String(o.order_code));
+            if (localMatch?.status === 'CANCELLED' && o.status !== 'CANCELLED') {
+              return { ...o, status: 'CANCELLED' };
+            }
+            return o;
+          });
+
+          const finalList = [...merged, ...localOnlyOrders].sort(
+            (a, b) => new Date(b.created_at) - new Date(a.created_at)
+          );
+
+          // Cập nhật cache
+          try { localStorage.setItem('aobcn_orders_cache', JSON.stringify(finalList)); } catch (e) {}
+          return finalList;
+        }
+      } else {
+        const errText = await res.text();
+        console.error('[Supabase] getOrders error:', res.status, errText);
       }
-      const errText = await res.text();
-      console.error('[Supabase] getOrders error:', res.status, errText);
     } catch (err) {
       console.warn('[Supabase] getOrders network error:', err);
     }
+
     // Fallback: dùng localStorage cache
-    try {
-      return JSON.parse(localStorage.getItem('aobcn_orders_cache') || '[]');
-    } catch (e) {
-      return [];
-    }
+    return localOrders;
   },
 
   // Alias dùng cho User page (giống getOrders nhưng có semantic riêng)
@@ -197,6 +224,144 @@ export const supabaseApi = {
       return res.ok;
     } catch (err) {
       console.warn('[Supabase] cancelOrder network error:', err);
+      return false;
+    }
+  },
+
+  // Xóa hẳn một đơn hàng (Admin only)
+  async deleteOrder(orderCode, orderId) {
+    // Xóa khỏi localStorage cache
+    try {
+      let localOrders = JSON.parse(localStorage.getItem('aobcn_orders_cache') || '[]');
+      localOrders = localOrders.filter(o =>
+        !(orderCode && String(o.order_code) === String(orderCode)) &&
+        !(orderId && (o.id === orderId || String(o.id) === String(orderId)))
+      );
+      localStorage.setItem('aobcn_orders_cache', JSON.stringify(localOrders));
+    } catch (e) {}
+
+    // Xóa trên Supabase
+    try {
+      const matchQuery = orderCode
+        ? `order_code=eq.${orderCode}`
+        : `id=eq.${orderId}`;
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/orders?${matchQuery}`, {
+        method: 'DELETE',
+        headers
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error('[Supabase] deleteOrder error:', res.status, errText);
+      }
+      return res.ok;
+    } catch (err) {
+      console.warn('[Supabase] deleteOrder network error:', err);
+      return false;
+    }
+  },
+
+  // ── QUẢN LÝ NGƯỜI DÙNG ───────────────────────────────────────────────────
+
+  // Lấy tất cả users (Admin only)
+  async getUsers() {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/users?select=*&order=created_at.desc`, { headers });
+      if (res.ok) return await res.json();
+      console.error('[Supabase] getUsers error:', res.status, await res.text());
+      return [];
+    } catch (err) {
+      console.warn('[Supabase] getUsers network error:', err);
+      return [];
+    }
+  },
+
+  // Tạo hoặc cập nhật user khi đăng nhập (upsert theo zalo_id)
+  async upsertUser(userData) {
+    // userData: { zalo_id, name, avatar, role? }
+    const payload = {
+      zalo_id: String(userData.zalo_id || userData.id || ''),
+      name: userData.name || userData.display_name || 'Người dùng',
+      avatar: userData.avatar || userData.picture || '',
+      role: userData.role || 'user',
+      last_login: new Date().toISOString()
+    };
+    if (!payload.zalo_id) return null;
+
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/users?zalo_id=eq.${payload.zalo_id}`,
+        {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify({ name: payload.name, avatar: payload.avatar, last_login: payload.last_login })
+        }
+      );
+      // Nếu PATCH không tìm thấy row → INSERT mới
+      const patchData = await res.json();
+      if (!Array.isArray(patchData) || patchData.length === 0) {
+        const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/users`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload)
+        });
+        if (insertRes.ok) {
+          const inserted = await insertRes.json();
+          return Array.isArray(inserted) ? inserted[0] : inserted;
+        }
+      }
+      return Array.isArray(patchData) ? patchData[0] : patchData;
+    } catch (err) {
+      console.warn('[Supabase] upsertUser error:', err);
+      return null;
+    }
+  },
+
+  // Cập nhật role của user (Admin only)
+  async updateUserRole(zaloId, role) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/users?zalo_id=eq.${zaloId}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ role })
+      });
+      if (!res.ok) {
+        console.error('[Supabase] updateUserRole error:', res.status, await res.text());
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.warn('[Supabase] updateUserRole network error:', err);
+      return false;
+    }
+  },
+
+  // Lấy role của 1 user theo zalo_id
+  async getUserRole(zaloId) {
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/users?zalo_id=eq.${zaloId}&select=role`,
+        { headers }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        return (Array.isArray(data) && data[0]) ? data[0].role : 'user';
+      }
+      return 'user';
+    } catch (err) {
+      return 'user';
+    }
+  },
+
+  // Xóa user (Admin only)
+  async deleteUser(zaloId) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/users?zalo_id=eq.${zaloId}`, {
+        method: 'DELETE',
+        headers
+      });
+      return res.ok;
+    } catch (err) {
+      console.warn('[Supabase] deleteUser network error:', err);
       return false;
     }
   }
