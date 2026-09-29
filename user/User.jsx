@@ -14,7 +14,7 @@ function User() {
 
     // Quản lý Toast Thông báo & Confirm Modal tùy chỉnh
     const [toast, setToast] = useState(null);
-    const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+    const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: () => { } });
 
     const showToast = (message, type = 'info', title = '') => {
         setToast({ message, type, title });
@@ -52,9 +52,9 @@ function User() {
     const [userOrders, setUserOrders] = useState([]);
     const [showOrdersModal, setShowOrdersModal] = useState(false);
 
-    // Tải danh sách đơn hàng của người dùng từ Supabase
+    // Tải danh sách đơn hàng từ Supabase
     const fetchUserOrders = async () => {
-        const allOrders = await supabaseApi.getOrders();
+        const allOrders = await supabaseApi.getUserOrders();
         if (allOrders && Array.isArray(allOrders)) {
             setUserOrders(allOrders);
         }
@@ -79,8 +79,9 @@ function User() {
 
     useEffect(() => {
         fetchUserOrders();
-        window.addEventListener('orders_updated', fetchUserOrders);
-        return () => window.removeEventListener('orders_updated', fetchUserOrders);
+        const handleOrdersUpdated = () => fetchUserOrders();
+        window.addEventListener('orders_updated', handleOrdersUpdated);
+        return () => window.removeEventListener('orders_updated', handleOrdersUpdated);
     }, []);
 
     // Tải sản phẩm từ Supabase khi mở trang (và định kỳ đồng bộ)
@@ -298,29 +299,40 @@ function User() {
             // 1. Luôn lưu đơn hàng trực tiếp lên Supabase Database (Đồng bộ mọi máy ngay tức thì!)
             await supabaseApi.createOrder(orderData);
 
-            // 2. Thử lưu vào BE nếu BE có endpoint /api/orders
-            const apiUrl = import.meta.env.VITE_API_URL;
-            if (apiUrl) {
-                fetch(`${apiUrl}/api/orders`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(orderData)
-                }).catch(() => null);
-            }
-
             let checkoutUrl = null;
 
+            // 2. Thử gọi BE PayOS với timeout 3 giây (tránh bị block bởi auth prompt)
+            const apiUrl = import.meta.env.VITE_API_URL;
             if (apiUrl) {
-                // Ưu tiên gọi API backend PayOS nếu có
-                const response = await fetch(`${apiUrl}/api/create-payment-link`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(orderData)
-                }).catch(() => null);
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 3000);
 
-                if (response && response.ok) {
-                    const data = await response.json();
-                    checkoutUrl = data.checkoutUrl || data.data?.checkoutUrl;
+                    const response = await fetch(`${apiUrl}/api/create-payment-link`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(orderData),
+                        signal: controller.signal,
+                        credentials: "omit" // Không gửi cookies/credentials để tránh auth prompt
+                    });
+                    clearTimeout(timeoutId);
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        checkoutUrl = data.checkoutUrl || data.data?.checkoutUrl;
+                    }
+
+                    // Fire-and-forget: lưu vào BE orders (không chờ)
+                    fetch(`${apiUrl}/api/orders`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(orderData),
+                        credentials: "omit"
+                    }).catch(() => null);
+
+                } catch (beErr) {
+                    // Timeout hoặc BE không khả dụng -> bỏ qua, đơn đã lưu Supabase rồi
+                    console.warn("BE không khả dụng (timeout/lỗi), đơn đã lưu Supabase:", beErr.name);
                 }
             }
 
@@ -875,7 +887,7 @@ function User() {
                                                 </div>
 
                                                 {ord.status !== 'CANCELLED' && (
-                                                    <button 
+                                                    <button
                                                         type="button"
                                                         className="btn-cancel-order"
                                                         onClick={() => handleCancelOrder(ord)}
@@ -899,10 +911,10 @@ function User() {
                 <Toast toast={toast} onClose={() => setToast(null)} />
             </div>
 
-            <ConfirmModal 
-                modal={confirmModal} 
-                onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })} 
-                onConfirm={confirmModal.onConfirm} 
+            <ConfirmModal
+                modal={confirmModal}
+                onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+                onConfirm={confirmModal.onConfirm}
             />
         </div>
     );

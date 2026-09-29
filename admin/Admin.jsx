@@ -167,11 +167,44 @@ function Admin() {
     }
   };
 
+  // Chỉ fetch đơn hàng (nhẹ hơn, dùng để polling nhanh hơn)
+  const fetchOrdersOnly = async () => {
+    try {
+      const remoteOrders = await supabaseApi.getOrders();
+      if (remoteOrders && Array.isArray(remoteOrders)) {
+        setOrders(remoteOrders);
+      }
+    } catch (err) {
+      console.warn('Lỗi fetch orders:', err);
+    }
+  };
+
   useEffect(() => {
     fetchRemoteData();
-    // Tự động kiểm tra cập nhật mỗi 5 giây để đồng bộ real-time giữa các máy
-    const interval = setInterval(fetchRemoteData, 5000);
-    return () => clearInterval(interval);
+    // Products: sync mỗi 5s
+    const prodInterval = setInterval(async () => {
+      const remoteProds = await supabaseApi.getProducts();
+      if (remoteProds && Array.isArray(remoteProds) && remoteProds.length > 0) {
+        const formatted = remoteProds.map(p => ({
+          id: p.id, name: p.name, tag: p.tag, category: p.category,
+          price: Number(p.price), oldPrice: p.old_price ? Number(p.old_price) : null,
+          sizes: Array.isArray(p.sizes) ? p.sizes : ['S', 'M', 'L', 'XL'],
+          genders: Array.isArray(p.genders) ? p.genders : ['Male', 'Female'],
+          inStock: p.in_stock !== false, badge: p.badge || '',
+          image: p.image || bcn,
+          images: Array.isArray(p.images) && p.images.length > 0 ? p.images : [p.image || bcn],
+          description: p.description || ''
+        }));
+        setProducts(formatted);
+        saveStoredProducts(formatted);
+      }
+    }, 5000);
+    // Orders: sync mỗi 3s để đầy đư real-time hơn
+    const ordersInterval = setInterval(fetchOrdersOnly, 3000);
+    return () => {
+      clearInterval(prodInterval);
+      clearInterval(ordersInterval);
+    };
   }, []);
 
   const [formData, setFormData] = useState({
@@ -776,7 +809,7 @@ function Admin() {
               <button 
                 type="button"
                 className={`btn-secondary ${activeTab === 'orders' ? 'tab-active' : ''}`}
-                onClick={() => setActiveTab('orders')}
+                onClick={() => { setActiveTab('orders'); fetchOrdersOnly(); }}
                 style={{
                   background: activeTab === 'orders' ? '#0284c7' : undefined,
                   color: activeTab === 'orders' ? '#fff' : undefined,
