@@ -19,8 +19,10 @@ function Login() {
             : null;
 
         const handleLoginResult = (result) => {
-            if (result?.success) {
-                alert(`Chào mừng ${result.user.name}`);
+            if (result?.success && result?.user) {
+                console.log('✅ Đăng nhập Zalo thành công:', result.user);
+                localStorage.setItem('zalo_user', JSON.stringify(result.user));
+                window.location.href = '/user';
             } else if (result?.error) {
                 console.error('Lỗi xác thực Zalo:', result.error);
             }
@@ -35,7 +37,11 @@ function Login() {
                 return;
             }
 
-            handleLoginResult(JSON.parse(event.newValue));
+            try {
+                handleLoginResult(JSON.parse(event.newValue));
+            } catch (err) {
+                console.error("Lỗi parse storage:", err);
+            }
         };
 
         channel?.addEventListener('message', handleChannelMessage);
@@ -92,38 +98,6 @@ function Login() {
         };
     }, []);
 
-    useEffect(() => {
-        const handleZaloMessage = (event) => {
-            // Chỉ nhận message từ chính domain của mình
-            if (event.origin !== window.location.origin) {
-                return;
-            }
-
-            if (event.data?.type !== 'ZALO_LOGIN_SUCCESS') {
-                return;
-            }
-
-            const userData = event.data.data;
-
-            console.log('Dữ liệu User nhận được:', userData);
-
-            // Lưu thông tin user
-            localStorage.setItem(
-                'zalo_user',
-                JSON.stringify(userData.user)
-            );
-
-            // Chuyển sang trang User
-            window.location.href = '/user';
-        };
-
-        window.addEventListener('message', handleZaloMessage);
-
-        return () => {
-            window.removeEventListener('message', handleZaloMessage);
-        };
-    }, []);
-
     const handleZaloLogin = () => {
         const popupWidth = 480;
         const popupHeight = 720;
@@ -147,6 +121,20 @@ function Login() {
             return;
         }
 
+        let timer = setInterval(() => {
+            if (loginPopup.closed) {
+                clearInterval(timer);
+                try {
+                    const saved = localStorage.getItem('zalo_user');
+                    if (saved) {
+                        window.location.href = '/user';
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+        }, 500);
+
         loginPopup.location.href =
             `${import.meta.env.VITE_API_URL}/dev/auth`;
     };
@@ -160,30 +148,24 @@ function Login() {
     else if (hour >= 0 && hour < 6) welcomeDay = 4;
 
     useEffect(() => {
-        const handleZaloLogin = (event) => {
-            console.log("📩 Nhận message:", event.data);
-            console.log("📩 Origin:", event.origin);
+        const handleZaloMessage = (event) => {
+            console.log("📩 Nhận message từ popup:", event.data);
 
             if (event.data?.type === "ZALO_LOGIN_SUCCESS") {
-                const user = event.data.user;
-
-                console.log("✅ User:", user);
-
-                localStorage.setItem(
-                    "zalo_user",
-                    JSON.stringify(user)
-                );
-
-                console.log("➡️ Đang chuyển sang /user");
-
-                window.location.href = "/user";
+                const user = event.data.user || event.data.data?.user;
+                if (user) {
+                    console.log("✅ User nhận được:", user);
+                    localStorage.setItem("zalo_user", JSON.stringify(user));
+                    console.log("➡️ Đang chuyển hướng sang /user...");
+                    window.location.href = "/user";
+                }
             }
         };
 
-        window.addEventListener("message", handleZaloLogin);
+        window.addEventListener("message", handleZaloMessage);
 
         return () => {
-            window.removeEventListener("message", handleZaloLogin);
+            window.removeEventListener("message", handleZaloMessage);
         };
     }, []);
 
