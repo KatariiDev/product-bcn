@@ -70,9 +70,27 @@ function User() {
             cancelText: 'Giữ lại đơn',
             danger: true,
             onConfirm: async () => {
-                await supabaseApi.cancelOrder(ord.order_code, ord.id);
+                // Cập nhật UI ngay lập tức (không chờ Supabase)
+                setUserOrders(prev => prev.map(o =>
+                    (o.order_code === ord.order_code || o.id === ord.id)
+                        ? { ...o, status: 'CANCELLED' }
+                        : o
+                ));
                 showToast(`Đơn hàng #${code} đã được hủy thành công!`, 'success', 'Đã hủy đơn');
-                fetchUserOrders();
+
+                // Cập nhật localStorage cache
+                try {
+                    let localOrders = JSON.parse(localStorage.getItem('aobcn_orders_cache') || '[]');
+                    localOrders = localOrders.map(o =>
+                        (o.order_code === ord.order_code || o.id === ord.id)
+                            ? { ...o, status: 'CANCELLED' }
+                            : o
+                    );
+                    localStorage.setItem('aobcn_orders_cache', JSON.stringify(localOrders));
+                } catch (e) {}
+
+                // Background: cập nhật trên Supabase (không cần await kết quả)
+                supabaseApi.cancelOrder(ord.order_code, ord.id).catch(() => null);
             }
         });
     };
@@ -102,7 +120,16 @@ function User() {
                     inStock: p.in_stock !== false,
                     badge: p.badge || '',
                     image: p.image || bcn,
-                    images: Array.isArray(p.images) && p.images.length > 0 ? p.images : [p.image || bcn],
+                    images: (() => {
+                        // Filter bỏ giá trị rỗng, lấy ảnh hợp lệ
+                        const validImgs = Array.isArray(p.images)
+                            ? p.images.filter(img => img && typeof img === 'string' && img.trim() !== '')
+                            : [];
+                        const validCover = p.image && p.image.trim() !== '' ? p.image : null;
+                        if (validImgs.length > 0) return validImgs;
+                        if (validCover) return [validCover];
+                        return [bcn];
+                    })(),
                     description: p.description || ''
                 }));
                 setProducts(formatted);
@@ -119,19 +146,43 @@ function User() {
         };
     }, []);
 
-    // Lấy thông tin user
-    useEffect(() => {
+    const [userRole, setUserRole] = useState(() => {
         try {
-            const savedUser = localStorage.getItem("zalo_user");
-            if (savedUser) {
-                const userData = JSON.parse(savedUser);
-                setUser(userData);
-            }
-        } catch (error) {
-            console.error("Lỗi đọc thông tin user:", error);
-        } finally {
-            setLoading(false);
+            const saved = localStorage.getItem("zalo_user_role");
+            return saved || 'user';
+        } catch {
+            return 'user';
         }
+    });
+
+    // Lấy thông tin user và role
+    useEffect(() => {
+        const initUser = async () => {
+            try {
+                const savedUser = localStorage.getItem("zalo_user");
+                if (savedUser) {
+                    const userData = JSON.parse(savedUser);
+                    setUser(userData);
+
+                    const zaloId = userData.id || userData.zalo_id;
+                    if (zaloId) {
+                        // 1. Lưu/cập nhật user lên Supabase
+                        await supabaseApi.upsertUser(userData).catch(() => null);
+
+                        // 2. Lấy phân quyền thực tế từ Supabase
+                        const role = await supabaseApi.getUserRole(zaloId);
+                        setUserRole(role);
+                        localStorage.setItem("zalo_user_role", role);
+                    }
+                }
+            } catch (error) {
+                console.error("Lỗi đọc thông tin user:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        initUser();
     }, []);
 
     // Lắng nghe cập nhật sản phẩm từ trang Admin (cùng tab hoặc qua storage event)
@@ -207,6 +258,7 @@ function User() {
 
         // Xóa toàn bộ dữ liệu lưu trữ phía client
         localStorage.removeItem("zalo_user");
+        localStorage.removeItem("zalo_user_role");
         localStorage.removeItem("zalo_login_result");
         sessionStorage.clear();
 
@@ -389,10 +441,13 @@ function User() {
 
     const availableGenders = selectedProduct?.genders || ["Male", "Female"];
 
-    // Danh sách ảnh của sản phẩm được chọn
-    const productImages = (selectedProduct?.images && selectedProduct.images.length > 0)
-        ? selectedProduct.images
-        : [selectedProduct?.image || bcn];
+    // Danh sách ảnh hợp lệ của sản phẩm được chọn (filter bỏ giá trị rỗng)
+    const productImages = (() => {
+        const imgs = (selectedProduct?.images || []).filter(img => img && img.trim() !== '');
+        if (imgs.length > 0) return imgs;
+        if (selectedProduct?.image) return [selectedProduct.image];
+        return [bcn];
+    })();
 
     const currentDisplayImg = productImages[activeImageIndex] || productImages[0] || bcn;
 
@@ -432,9 +487,11 @@ function User() {
                         <span>Theme: {themeMode === 'auto' ? 'Auto (Giờ)' : themeMode === 'light' ? 'Sáng' : 'Tối'}</span>
                     </button>
 
-                    <Link to="/admin" className="header-admin-link">
-                        <Shield size={15} /> Quản Trị Admin
-                    </Link>
+                    {userRole === 'admin' && (
+                        <Link to="/admin" className="header-admin-link">
+                            <Shield size={15} /> Quản Trị Admin
+                        </Link>
+                    )}
 
                     <div className="user-card">
                         <img
@@ -444,7 +501,9 @@ function User() {
                         />
                         <div className="user-info">
                             <p className="user-name">{user.name}</p>
-                            <span className="user-role">Thành viên BCN</span>
+                            <span className="user-role">
+                                {userRole === 'admin' ? '🛡️ Quản trị viên' : 'Thành viên BCN'}
+                            </span>
                         </div>
                         <button
                             className="logout-button"
@@ -556,8 +615,10 @@ function User() {
                         <div className="products-grid">
                             {filteredProducts.map((item) => {
                                 const isSelected = selectedProduct?.id === item.id;
-                                const primaryImg = (item.images && item.images[0]) || item.image || bcn;
-                                const totalImgs = item.images ? item.images.length : 1;
+                                // Lọc ảnh hợp lệ (bỏ giá trị rỗng/null)
+                                const validImages = (item.images || []).filter(img => img && img.trim() !== '');
+                                const primaryImg = validImages[0] || item.image || bcn;
+                                const totalImgs = validImages.length;
 
                                 return (
                                     <div
@@ -571,7 +632,11 @@ function User() {
                                             </span>
                                         )}
                                         <div className="card-thumb">
-                                            <img src={primaryImg} alt={item.name} />
+                                            <img
+                                                src={primaryImg}
+                                                alt={item.name}
+                                                onError={(e) => { e.target.onerror = null; e.target.src = bcn; }}
+                                            />
                                             {!item.inStock && (
                                                 <div className="card-out-overlay">Tạm hết hàng</div>
                                             )}
@@ -619,6 +684,7 @@ function User() {
                                         src={currentDisplayImg}
                                         alt={selectedProduct.name}
                                         className="detail-main-img"
+                                        onError={(e) => { e.target.onerror = null; e.target.src = bcn; }}
                                     />
                                     {selectedProduct.badge && (
                                         <div className="preview-badge">{selectedProduct.badge}</div>
@@ -772,7 +838,9 @@ function User() {
                             <li><a href="#polo" onClick={(e) => { e.preventDefault(); setSelectedCategory("polo"); }}>Áo Polo BCN</a></li>
                             <li><a href="#hoodie" onClick={(e) => { e.preventDefault(); setSelectedCategory("hoodie"); }}>Áo Hoodie Đêm Dev</a></li>
                             <li><a href="#tshirt" onClick={(e) => { e.preventDefault(); setSelectedCategory("tshirt"); }}>T-Shirt Minimalist</a></li>
-                            <li><Link to="/admin">Trang Quản Trị Admin</Link></li>
+                            {userRole === 'admin' && (
+                                <li><Link to="/admin">Trang Quản Trị Admin</Link></li>
+                            )}
                         </ul>
                     </div>
 
