@@ -10,21 +10,24 @@ const headers = {
 };
 
 export const supabaseApi = {
-  // Lấy danh sách sản phẩm
+
+  // ── SẢN PHẨM ──────────────────────────────────────────────────────────────
+
   async getProducts() {
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/products?select=*&order=created_at.desc`, {
-        headers
-      });
-      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/products?select=*&order=created_at.desc`, { headers });
+      if (!res.ok) {
+        const err = await res.text();
+        console.error('[Supabase] getProducts error:', res.status, err);
+        return null;
+      }
       return await res.json();
     } catch (err) {
-      console.warn('Lỗi lấy sản phẩm từ Supabase:', err);
+      console.warn('[Supabase] getProducts network error:', err);
       return null;
     }
   },
 
-  // Lưu hoặc cập nhật một sản phẩm
   async upsertProduct(product) {
     try {
       const payload = {
@@ -42,24 +45,23 @@ export const supabaseApi = {
         images: product.images || [],
         description: product.description || ''
       };
-
       const res = await fetch(`${SUPABASE_URL}/rest/v1/products`, {
         method: 'POST',
-        headers: {
-          ...headers,
-          'Prefer': 'resolution=merge-duplicates,return=representation'
-        },
+        headers: { ...headers, 'Prefer': 'resolution=merge-duplicates,return=representation' },
         body: JSON.stringify(payload)
       });
-      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+      if (!res.ok) {
+        const err = await res.text();
+        console.error('[Supabase] upsertProduct error:', res.status, err);
+        return null;
+      }
       return await res.json();
     } catch (err) {
-      console.warn('Lỗi lưu sản phẩm lên Supabase:', err);
+      console.warn('[Supabase] upsertProduct network error:', err);
       return null;
     }
   },
 
-  // Xóa sản phẩm
   async deleteProduct(productId) {
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${productId}`, {
@@ -68,119 +70,133 @@ export const supabaseApi = {
       });
       return res.ok;
     } catch (err) {
-      console.warn('Lỗi xóa sản phẩm trên Supabase:', err);
+      console.warn('[Supabase] deleteProduct error:', err);
       return false;
     }
   },
 
-  // Tạo đơn hàng mới (lưu Supabase + localStorage fallback)
+  // ── ĐƠN HÀNG ──────────────────────────────────────────────────────────────
+
+  // Tạo đơn hàng mới và lưu thẳng lên Supabase + localStorage cache
   async createOrder(order) {
-    const newOrderObj = {
-      id: `ord-${Date.now()}`,
-      order_code: order.orderCode,
-      zalo_id: order.zaloId || 'guest',
-      name: order.name || 'Khách hàng',
+    // Payload gửi lên Supabase (KHÔNG có id - để Supabase tự sinh)
+    const supabasePayload = {
+      order_code: Number(order.orderCode),
+      zalo_id: String(order.zaloId || 'guest'),
+      name: order.name || 'Khách hàng BCN',
       product_name: order.productName,
       gender: order.gender,
       size: order.size,
-      quantity: order.quantity || 1,
+      quantity: Number(order.quantity) || 1,
       price: Number(order.price),
       total_price: Number(order.totalPrice),
       status: 'PENDING',
       created_at: new Date().toISOString()
     };
 
-    // 1. Luôn lưu vào LocalStorage để đảm bảo máy hiện tại thấy đơn 100%
+    // Object tạm cho localStorage (có id local để render UI)
+    const localObj = {
+      id: `ord-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      ...supabasePayload
+    };
+
+    console.log('[Supabase] createOrder payload:', supabasePayload);
+
+    // 1. Lưu vào localStorage ngay lập tức (user thấy đơn ngay)
     try {
       const localOrders = JSON.parse(localStorage.getItem('aobcn_orders_cache') || '[]');
-      localOrders.unshift(newOrderObj);
+      localOrders.unshift(localObj);
       localStorage.setItem('aobcn_orders_cache', JSON.stringify(localOrders));
       window.dispatchEvent(new Event('orders_updated'));
     } catch (e) {
-      console.warn('Lỗi lưu order cache:', e);
+      console.warn('[Supabase] localStorage cache error:', e);
     }
 
-    // 2. Đồng bộ lên Supabase Database
+    // 2. Đẩy lên Supabase
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/orders`, {
         method: 'POST',
         headers,
-        body: JSON.stringify(newOrderObj)
+        body: JSON.stringify(supabasePayload)
       });
       if (!res.ok) {
-        const errorText = await res.text();
-        console.error('Lỗi phản hồi từ Supabase /orders:', res.status, errorText);
+        const errText = await res.text();
+        console.error('[Supabase] createOrder FAILED:', res.status, errText);
       } else {
-        return await res.json();
+        const result = await res.json();
+        console.log('[Supabase] createOrder SUCCESS:', result);
+        return result;
       }
     } catch (err) {
-      console.error('Lỗi kết nối Supabase tạo đơn:', err);
+      console.error('[Supabase] createOrder network error:', err);
     }
-    return newOrderObj;
+
+    return localObj;
   },
 
-  // Lấy danh sách đơn hàng (kết hợp Supabase + LocalStorage)
+  // Lấy TẤT CẢ đơn hàng từ Supabase (Admin + User đều dùng)
   async getOrders() {
-    let remoteOrders = [];
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/orders?select=*&order=created_at.desc`, {
-        headers
-      });
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/orders?select=*&order=created_at.desc`, { headers });
       if (res.ok) {
-        remoteOrders = await res.json();
+        const data = await res.json();
+        // Cập nhật cache local
+        try { localStorage.setItem('aobcn_orders_cache', JSON.stringify(data)); } catch (e) {}
+        return data;
       }
+      const errText = await res.text();
+      console.error('[Supabase] getOrders error:', res.status, errText);
     } catch (err) {
-      console.warn('Lỗi fetch đơn hàng từ Supabase:', err);
+      console.warn('[Supabase] getOrders network error:', err);
     }
-
-    // Lấy cache local
-    let localOrders = [];
+    // Fallback: dùng localStorage cache
     try {
-      localOrders = JSON.parse(localStorage.getItem('aobcn_orders_cache') || '[]');
+      return JSON.parse(localStorage.getItem('aobcn_orders_cache') || '[]');
     } catch (e) {
-      localOrders = [];
+      return [];
     }
-
-    // Gộp và loại trùng lặp theo order_code
-    if (Array.isArray(remoteOrders) && remoteOrders.length > 0) {
-      // Lưu lại bản mới nhất vào cache
-      try {
-        localStorage.setItem('aobcn_orders_cache', JSON.stringify(remoteOrders));
-      } catch (e) {}
-      return remoteOrders;
-    }
-
-    return localOrders;
   },
 
-  // Hủy đơn hàng (Cập nhật status sang CANCELLED hoặc Xóa khỏi DB)
+  // Alias dùng cho User page (giống getOrders nhưng có semantic riêng)
+  async getUserOrders(zaloId) {
+    return this.getOrders();
+  },
+
+  // Hủy đơn hàng
   async cancelOrder(orderCode, orderId) {
-    // 1. Cập nhật cache local ngay lập tức
+    // Cập nhật cache local ngay
     try {
       let localOrders = JSON.parse(localStorage.getItem('aobcn_orders_cache') || '[]');
       localOrders = localOrders.map(o => {
-        if ((orderCode && o.order_code === orderCode) || (orderId && (o.id === orderId || String(o.id) === String(orderId)))) {
-          return { ...o, status: 'CANCELLED' };
-        }
+        const matchCode = orderCode && (o.order_code === orderCode || String(o.order_code) === String(orderCode));
+        const matchId = orderId && (o.id === orderId || String(o.id) === String(orderId));
+        if (matchCode || matchId) return { ...o, status: 'CANCELLED' };
         return o;
       });
       localStorage.setItem('aobcn_orders_cache', JSON.stringify(localOrders));
       window.dispatchEvent(new Event('orders_updated'));
     } catch (e) {
-      console.warn('Lỗi cập nhật cancel local:', e);
+      console.warn('[Supabase] cancelOrder local cache error:', e);
     }
 
-    // 2. Cập nhật trạng thái trên Supabase
+    // Cập nhật trên Supabase - chỉ dùng order_code vì id Supabase khác với id local
     try {
-      const matchQuery = orderCode ? `order_code=eq.${orderCode}` : `id=eq.${orderId}`;
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/orders?${matchQuery}`, {
+      if (!orderCode) {
+        console.warn('[Supabase] cancelOrder: không có order_code để match trên Supabase');
+        return false;
+      }
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/orders?order_code=eq.${orderCode}`, {
         method: 'PATCH',
         headers,
         body: JSON.stringify({ status: 'CANCELLED' })
       });
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error('[Supabase] cancelOrder error:', res.status, errText);
+      }
       return res.ok;
     } catch (err) {
-      console.warn('Lỗi cập nhật cancel trên Supabase:', err);
+      console.warn('[Supabase] cancelOrder network error:', err);
       return false;
     }
   }
