@@ -83,19 +83,34 @@ export const INITIAL_PRODUCTS = [
 
 export const STORAGE_KEY_PRODUCTS = 'aobcn_products_data';
 
+export const resolveProductCover = (item) => {
+  if (item?.image && typeof item.image === 'string' && item.image.trim() !== '') {
+    return item.image;
+  }
+  if (Array.isArray(item?.images) && item.images.length > 0) {
+    const valid = item.images.find(img => img && typeof img === 'string' && img.trim() !== '');
+    if (valid) return valid;
+  }
+  return bcn;
+};
+
 export const getStoredProducts = () => {
   try {
     const data = localStorage.getItem(STORAGE_KEY_PRODUCTS);
     if (data) {
       const parsed = JSON.parse(data);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.map(item => ({
-          ...item,
-          images: Array.isArray(item.images) && item.images.length > 0
-            ? item.images
-            : [item.image || bcn],
-          image: item.image || (item.images && item.images[0]) || bcn
-        }));
+        return parsed.map(item => {
+          const cover = resolveProductCover(item);
+          const validImgs = Array.isArray(item.images)
+            ? item.images.filter(img => img && typeof img === 'string' && img.trim() !== '')
+            : [];
+          return {
+            ...item,
+            image: cover,
+            images: validImgs.length > 0 ? validImgs : [cover]
+          };
+        });
       }
     }
   } catch (err) {
@@ -159,21 +174,27 @@ function Admin() {
       // 1. Lấy danh sách sản phẩm
       const remoteProds = await supabaseApi.getProducts();
       if (remoteProds && Array.isArray(remoteProds) && remoteProds.length > 0) {
-        const formatted = remoteProds.map(p => ({
-          id: p.id,
-          name: p.name,
-          tag: p.tag,
-          category: p.category,
-          price: Number(p.price),
-          oldPrice: p.old_price ? Number(p.old_price) : null,
-          sizes: Array.isArray(p.sizes) ? p.sizes : ['S', 'M', 'L', 'XL'],
-          genders: Array.isArray(p.genders) ? p.genders : ['Male', 'Female'],
-          inStock: p.in_stock !== false,
-          badge: p.badge || '',
-          image: p.image || bcn,
-          images: Array.isArray(p.images) && p.images.length > 0 ? p.images : [p.image || bcn],
-          description: p.description || ''
-        }));
+        const formatted = remoteProds.map(p => {
+          const cover = resolveProductCover(p);
+          const validImgs = Array.isArray(p.images)
+            ? p.images.filter(img => img && typeof img === 'string' && img.trim() !== '')
+            : [];
+          return {
+            id: p.id,
+            name: p.name,
+            tag: p.tag,
+            category: p.category,
+            price: Number(p.price),
+            oldPrice: p.old_price ? Number(p.old_price) : null,
+            sizes: Array.isArray(p.sizes) ? p.sizes : ['S', 'M', 'L', 'XL'],
+            genders: Array.isArray(p.genders) ? p.genders : ['Male', 'Female'],
+            inStock: p.in_stock !== false,
+            badge: p.badge || '',
+            image: cover,
+            images: validImgs.length > 0 ? validImgs : [cover],
+            description: p.description || ''
+          };
+        });
         setProducts(formatted);
         saveStoredProducts(formatted);
       } else if (remoteProds && remoteProds.length === 0) {
@@ -265,16 +286,27 @@ function Admin() {
     const prodInterval = setInterval(async () => {
       const remoteProds = await supabaseApi.getProducts();
       if (remoteProds && Array.isArray(remoteProds) && remoteProds.length > 0) {
-        const formatted = remoteProds.map(p => ({
-          id: p.id, name: p.name, tag: p.tag, category: p.category,
-          price: Number(p.price), oldPrice: p.old_price ? Number(p.old_price) : null,
-          sizes: Array.isArray(p.sizes) ? p.sizes : ['S', 'M', 'L', 'XL'],
-          genders: Array.isArray(p.genders) ? p.genders : ['Male', 'Female'],
-          inStock: p.in_stock !== false, badge: p.badge || '',
-          image: p.image || bcn,
-          images: Array.isArray(p.images) && p.images.length > 0 ? p.images : [p.image || bcn],
-          description: p.description || ''
-        }));
+        const formatted = remoteProds.map(p => {
+          const cover = resolveProductCover(p);
+          const validImgs = Array.isArray(p.images)
+            ? p.images.filter(img => img && typeof img === 'string' && img.trim() !== '')
+            : [];
+          return {
+            id: p.id,
+            name: p.name,
+            tag: p.tag,
+            category: p.category,
+            price: Number(p.price),
+            oldPrice: p.old_price ? Number(p.old_price) : null,
+            sizes: Array.isArray(p.sizes) ? p.sizes : ['S', 'M', 'L', 'XL'],
+            genders: Array.isArray(p.genders) ? p.genders : ['Male', 'Female'],
+            inStock: p.in_stock !== false,
+            badge: p.badge || '',
+            image: cover,
+            images: validImgs.length > 0 ? validImgs : [cover],
+            description: p.description || ''
+          };
+        });
         setProducts(formatted);
         saveStoredProducts(formatted);
       }
@@ -739,6 +771,10 @@ function Admin() {
                   <img
                     src={formData.primaryImage || (formData.images.length > 0 && formData.images[0]) || bcn}
                     alt="Ảnh chính"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = bcn;
+                    }}
                   />
                 </div>
                 <div className="cover-input-fields">
@@ -783,7 +819,14 @@ function Admin() {
                 {formData.images.map((imgUrl, idx) => (
                   <div key={idx} className="image-item-card">
                     <div className="item-thumb-preview">
-                      <img src={imgUrl || bcn} alt={`Góc chụp ${idx + 1}`} />
+                      <img
+                        src={imgUrl || bcn}
+                        alt={`Góc chụp ${idx + 1}`}
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = bcn;
+                        }}
+                      />
                     </div>
                     <div className="item-input-wrap">
                       <input
@@ -977,7 +1020,14 @@ function Admin() {
                       <tr key={item.id}>
                         <td>
                           <div className="table-img-wrap">
-                            <img src={item.image || (item.images && item.images[0]) || bcn} alt={item.name} />
+                            <img
+                              src={resolveProductCover(item)}
+                              alt={item.name}
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = bcn;
+                              }}
+                            />
                             {item.images && item.images.length > 1 && (
                               <span className="img-count-tag">+{item.images.length}</span>
                             )}
