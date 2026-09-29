@@ -52,11 +52,15 @@ function User() {
     const [userOrders, setUserOrders] = useState([]);
     const [showOrdersModal, setShowOrdersModal] = useState(false);
 
-    // Tải danh sách đơn hàng từ Supabase
+    // Tải danh sách đơn hàng riêng của người dùng từ Supabase
     const fetchUserOrders = async () => {
-        const allOrders = await supabaseApi.getUserOrders();
-        if (allOrders && Array.isArray(allOrders)) {
-            setUserOrders(allOrders);
+        const savedUser = localStorage.getItem("zalo_user");
+        const currentId = user?.id || user?.zalo_id || (savedUser ? JSON.parse(savedUser)?.id || JSON.parse(savedUser)?.zalo_id : null);
+        if (!currentId) return;
+
+        const orders = await supabaseApi.getUserOrders(currentId);
+        if (orders && Array.isArray(orders)) {
+            setUserOrders(orders);
         }
     };
 
@@ -174,6 +178,8 @@ function User() {
                         setUserRole(role);
                         localStorage.setItem("zalo_user_role", role);
                     }
+                    // Tải đơn hàng tương ứng với user này
+                    fetchUserOrders();
                 }
             } catch (error) {
                 console.error("Lỗi đọc thông tin user:", error);

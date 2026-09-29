@@ -184,9 +184,50 @@ export const supabaseApi = {
     return localOrders;
   },
 
-  // Alias dùng cho User page (giống getOrders nhưng có semantic riêng)
+  // Lấy đơn hàng của người dùng cụ thể (User page)
   async getUserOrders(zaloId) {
-    return this.getOrders();
+    if (!zaloId) return [];
+
+    const targetZaloId = String(zaloId);
+
+    // 1. Lấy cache local tương ứng với user
+    let localUserOrders = [];
+    try {
+      const allLocal = JSON.parse(localStorage.getItem('aobcn_orders_cache') || '[]');
+      localUserOrders = allLocal.filter(o => String(o.zalo_id) === targetZaloId);
+    } catch (e) {}
+
+    // 2. Fetch từ Supabase với bộ lọc zalo_id
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/orders?zalo_id=eq.${targetZaloId}&select=*&order=created_at.desc`,
+        { headers }
+      );
+      if (res.ok) {
+        const remoteOrders = await res.json();
+        if (Array.isArray(remoteOrders)) {
+          // Merge local cache trạng thái CANCELLED
+          const remoteMap = new Map(remoteOrders.map(o => [String(o.order_code), o]));
+          const localOnly = localUserOrders.filter(o => !remoteMap.has(String(o.order_code)));
+
+          const merged = remoteOrders.map(o => {
+            const localMatch = localUserOrders.find(l => String(l.order_code) === String(o.order_code));
+            if (localMatch?.status === 'CANCELLED' && o.status !== 'CANCELLED') {
+              return { ...o, status: 'CANCELLED' };
+            }
+            return o;
+          });
+
+          return [...merged, ...localOnly].sort(
+            (a, b) => new Date(b.created_at) - new Date(a.created_at)
+          );
+        }
+      }
+    } catch (err) {
+      console.warn('[Supabase] getUserOrders network error:', err);
+    }
+
+    return localUserOrders;
   },
 
   // Hủy đơn hàng
