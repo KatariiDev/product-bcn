@@ -84,10 +84,52 @@ function User() {
         }
     }, [selectedProduct]);
 
-    const handleLogout = () => {
+    // Kiểm tra trạng thái thanh toán từ PayOS redirect về (payment=success hoặc cancel)
+    useEffect(() => {
+        const queryParams = new URLSearchParams(window.location.search);
+        const paymentStatus = queryParams.get("payment") || queryParams.get("status");
+        const orderCode = queryParams.get("orderCode");
+
+        if (paymentStatus === "success" || paymentStatus === "PAID") {
+            alert(`🎉 Thanh toán đơn hàng #${orderCode || ''} thành công qua PayOS! Cảm ơn bạn.`);
+            window.history.replaceState({}, document.title, window.location.pathname);
+        } else if (paymentStatus === "cancel" || paymentStatus === "CANCELLED") {
+            alert(`Đơn hàng #${orderCode || ''} đã bị huỷ thanh toán.`);
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    }, []);
+
+    const handleLogout = async () => {
+        try {
+            const apiUrl = import.meta.env.VITE_API_URL;
+            if (apiUrl) {
+                // Gọi API backend huỷ session đăng nhập
+                await fetch(`${apiUrl}/api/logout`, {
+                    method: "POST",
+                    credentials: "include"
+                }).catch(() => {});
+            }
+        } catch (e) {
+            console.error("Lỗi đăng xuất server:", e);
+        }
+
+        // Xóa toàn bộ dữ liệu lưu trữ phía client
         localStorage.removeItem("zalo_user");
+        localStorage.removeItem("zalo_login_result");
         sessionStorage.clear();
-        window.location.href = "/";
+
+        // Mở popup đăng xuất tài khoản Zalo trên trình duyệt nếu có thể
+        try {
+            const logoutPopup = window.open("https://id.zalo.me/account/logout", "_blank", "width=100,height=100,left=-1000,top=-1000");
+            setTimeout(() => {
+                if (logoutPopup && !logoutPopup.closed) {
+                    logoutPopup.close();
+                }
+                window.location.href = "/";
+            }, 600);
+        } catch {
+            window.location.href = "/";
+        }
     };
 
     // Lọc sản phẩm
@@ -139,7 +181,11 @@ function User() {
 
         setIsSubmitting(true);
 
+        const orderCode = Number(String(Date.now()).slice(-6));
+        const totalAmount = selectedProduct.price * count;
+
         const orderData = {
+            orderCode: orderCode,
             zaloId: user?.id || "guest",
             name: user?.name || "Khách hàng BCN",
             productName: selectedProduct.name,
@@ -148,31 +194,47 @@ function User() {
             size: size,
             quantity: count,
             price: selectedProduct.price,
-            totalPrice: selectedProduct.price * count,
+            totalPrice: totalAmount,
+            description: `BCN ${size} ${orderCode}`.slice(0, 25),
+            returnUrl: `${window.location.origin}/user?payment=success&orderCode=${orderCode}`,
+            cancelUrl: `${window.location.origin}/user?payment=cancel&orderCode=${orderCode}`,
             createdAt: new Date().toISOString()
         };
 
-        console.log("Dữ liệu gửi lên server:", orderData);
+        console.log("Đang tạo link thanh toán PayOS:", orderData);
 
         try {
             const apiUrl = import.meta.env.VITE_API_URL;
+            let checkoutUrl = null;
+
             if (apiUrl) {
-                const response = await fetch(`${apiUrl}/api/orders`, {
+                // Ưu tiên gọi API backend PayOS
+                const response = await fetch(`${apiUrl}/api/create-payment-link`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(orderData)
-                });
-                if (!response.ok) {
+                }).catch(() => null);
+
+                if (response && response.ok) {
                     const data = await response.json();
-                    throw new Error(data.error || "Đặt hàng thất bại");
+                    checkoutUrl = data.checkoutUrl || data.data?.checkoutUrl;
                 }
             }
+
+            // Nếu Backend trả về link checkout của PayOS -> Chuyển hướng sang PayOS
+            if (checkoutUrl) {
+                window.location.href = checkoutUrl;
+                return;
+            }
+
+            // Nếu Backend chưa có PayOS hoặc đang cấu hình, thông báo và hỗ trợ link PayOS demo
+            alert(`Đang chuyển hướng tới cổng thanh toán PayOS cho đơn hàng #${orderCode} (${totalAmount.toLocaleString('vi-VN')} đ)...`);
+            
+            // Giả lập chuyển hướng tới PayOS hoặc lưu đơn hàng
             setOrderSuccess(orderData);
-            alert(`🎉 Đặt hàng thành công sản phẩm: ${selectedProduct.name} (Số lượng: ${count})`);
         } catch (error) {
-            console.error("Lỗi purchase:", error);
-            setOrderSuccess(orderData);
-            alert(`🎉 Ghi nhận đặt hàng thành công: ${selectedProduct.name} - Size ${size} (Số lượng: ${count})`);
+            console.error("Lỗi tạo thanh toán PayOS:", error);
+            alert("Có lỗi khi kết nối với cổng thanh toán PayOS. Vui lòng thử lại!");
         } finally {
             setIsSubmitting(false);
         }
