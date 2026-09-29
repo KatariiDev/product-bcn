@@ -1,13 +1,34 @@
 import { useEffect, useState } from "react";
 import "./User.css";
-import { LogOut, Filter, Search, ShoppingBag, Check, Shield, Layers, ChevronRight, ChevronLeft, X, Sparkles, Phone, Mail, MapPin, Heart, ExternalLink } from 'lucide-react';
+import { LogOut, Filter, Search, ShoppingBag, Check, Shield, Layers, ChevronRight, ChevronLeft, X, Sparkles, Phone, Mail, MapPin, Heart, ExternalLink, Sun, Moon, ClipboardList, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import bcn from '../src/assets/bcn.png';
-import { getStoredProducts, STORAGE_KEY_PRODUCTS } from '../admin/Admin';
+import { getStoredProducts, STORAGE_KEY_PRODUCTS, saveStoredProducts } from '../admin/Admin';
+import { supabaseApi } from '../src/supabaseClient';
+import { Toast, ConfirmModal } from '../src/components/Toast';
 
 function User() {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [themeMode, setThemeMode] = useState(() => localStorage.getItem('app_theme_mode') || 'auto');
+
+    // Quản lý Toast Thông báo & Confirm Modal tùy chỉnh
+    const [toast, setToast] = useState(null);
+    const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+
+    const showToast = (message, type = 'info', title = '') => {
+        setToast({ message, type, title });
+        setTimeout(() => {
+            setToast(null);
+        }, 4000);
+    };
+
+    const toggleThemeMode = () => {
+        const nextMode = themeMode === 'light' ? 'dark' : themeMode === 'dark' ? 'auto' : 'light';
+        setThemeMode(nextMode);
+        localStorage.setItem('app_theme_mode', nextMode);
+        window.dispatchEvent(new Event('theme_mode_changed'));
+    };
 
     // Danh sách sản phẩm lấy từ Admin (localStorage / mặc định)
     const [products, setProducts] = useState(() => getStoredProducts());
@@ -26,6 +47,76 @@ function User() {
     const [count, setCount] = useState(1);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [orderSuccess, setOrderSuccess] = useState(null);
+
+    // Quản lý xem lịch sử đơn hàng của người dùng
+    const [userOrders, setUserOrders] = useState([]);
+    const [showOrdersModal, setShowOrdersModal] = useState(false);
+
+    // Tải danh sách đơn hàng của người dùng từ Supabase
+    const fetchUserOrders = async () => {
+        const allOrders = await supabaseApi.getOrders();
+        if (allOrders && Array.isArray(allOrders)) {
+            setUserOrders(allOrders);
+        }
+    };
+
+    const handleCancelOrder = (ord) => {
+        const code = ord.order_code || ord.id;
+        setConfirmModal({
+            isOpen: true,
+            title: 'Hủy Đơn Hàng',
+            message: `Bạn có chắc chắn muốn hủy đơn hàng #${code} này không? Thao tác này không thể hoàn tác.`,
+            confirmText: 'Xác nhận hủy',
+            cancelText: 'Giữ lại đơn',
+            danger: true,
+            onConfirm: async () => {
+                await supabaseApi.cancelOrder(ord.order_code, ord.id);
+                showToast(`Đơn hàng #${code} đã được hủy thành công!`, 'success', 'Đã hủy đơn');
+                fetchUserOrders();
+            }
+        });
+    };
+
+    useEffect(() => {
+        fetchUserOrders();
+        window.addEventListener('orders_updated', fetchUserOrders);
+        return () => window.removeEventListener('orders_updated', fetchUserOrders);
+    }, []);
+
+    // Tải sản phẩm từ Supabase khi mở trang (và định kỳ đồng bộ)
+    useEffect(() => {
+        let isMounted = true;
+        const fetchRemoteProducts = async () => {
+            const remoteProds = await supabaseApi.getProducts();
+            if (isMounted && remoteProds && Array.isArray(remoteProds) && remoteProds.length > 0) {
+                const formatted = remoteProds.map(p => ({
+                    id: p.id,
+                    name: p.name,
+                    tag: p.tag,
+                    category: p.category,
+                    price: Number(p.price),
+                    oldPrice: p.old_price ? Number(p.old_price) : null,
+                    sizes: Array.isArray(p.sizes) ? p.sizes : ['S', 'M', 'L', 'XL'],
+                    genders: Array.isArray(p.genders) ? p.genders : ['Male', 'Female'],
+                    inStock: p.in_stock !== false,
+                    badge: p.badge || '',
+                    image: p.image || bcn,
+                    images: Array.isArray(p.images) && p.images.length > 0 ? p.images : [p.image || bcn],
+                    description: p.description || ''
+                }));
+                setProducts(formatted);
+                saveStoredProducts(formatted);
+            }
+        };
+
+        fetchRemoteProducts();
+        // Kiểm tra cập nhật mỗi 5 giây để đồng bộ máy 2 ngay cả khi không reload
+        const interval = setInterval(fetchRemoteProducts, 5000);
+        return () => {
+            isMounted = false;
+            clearInterval(interval);
+        };
+    }, []);
 
     // Lấy thông tin user
     useEffect(() => {
@@ -91,10 +182,10 @@ function User() {
         const orderCode = queryParams.get("orderCode");
 
         if (paymentStatus === "success" || paymentStatus === "PAID") {
-            alert(`🎉 Thanh toán đơn hàng #${orderCode || ''} thành công qua PayOS! Cảm ơn bạn.`);
+            showToast(`Thanh toán đơn hàng #${orderCode || ''} thành công! Cảm ơn bạn đã mua hàng.`, 'success', 'Thanh toán thành công');
             window.history.replaceState({}, document.title, window.location.pathname);
         } else if (paymentStatus === "cancel" || paymentStatus === "CANCELLED") {
-            alert(`Đơn hàng #${orderCode || ''} đã bị huỷ thanh toán.`);
+            showToast(`Đơn hàng #${orderCode || ''} đã bị huỷ thanh toán.`, 'warning', 'Huỷ thanh toán');
             window.history.replaceState({}, document.title, window.location.pathname);
         }
     }, []);
@@ -107,7 +198,7 @@ function User() {
                 await fetch(`${apiUrl}/api/logout`, {
                     method: "POST",
                     credentials: "include"
-                }).catch(() => {});
+                }).catch(() => { });
             }
         } catch (e) {
             console.error("Lỗi đăng xuất server:", e);
@@ -135,7 +226,7 @@ function User() {
     // Lọc sản phẩm
     const filteredProducts = products.filter((item) => {
         // Tìm kiếm theo tên / tag / mô tả
-        const matchesQuery = !searchQuery || 
+        const matchesQuery = !searchQuery ||
             item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             (item.tag && item.tag.toLowerCase().includes(searchQuery.toLowerCase())) ||
             (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -144,7 +235,7 @@ function User() {
         const matchesCategory = selectedCategory === "all" || item.category === selectedCategory;
 
         // Lọc trạng thái
-        const matchesStatus = statusFilter === "all" || 
+        const matchesStatus = statusFilter === "all" ||
             (statusFilter === "inStock" && item.inStock) ||
             (statusFilter === "outOfStock" && !item.inStock);
 
@@ -165,17 +256,17 @@ function User() {
         if (!selectedProduct) return;
 
         if (!selectedProduct.inStock) {
-            alert("Sản phẩm hiện đang tạm hết hàng!");
+            showToast("Sản phẩm hiện đang tạm hết hàng!", 'warning', 'Tạm hết hàng');
             return;
         }
 
         if (!gender || gender === "...") {
-            alert("Vui lòng chọn giới tính");
+            showToast("Vui lòng chọn giới tính (Nam / Nữ)!", 'warning', 'Chưa chọn phân loại');
             return;
         }
 
         if (!size || size === "...") {
-            alert("Vui lòng chọn size");
+            showToast("Vui lòng chọn size áo phù hợp!", 'warning', 'Chưa chọn size');
             return;
         }
 
@@ -201,14 +292,26 @@ function User() {
             createdAt: new Date().toISOString()
         };
 
-        console.log("Đang tạo link thanh toán PayOS:", orderData);
+        console.log("Đang tạo đơn hàng và thanh toán:", orderData);
 
         try {
+            // 1. Luôn lưu đơn hàng trực tiếp lên Supabase Database (Đồng bộ mọi máy ngay tức thì!)
+            await supabaseApi.createOrder(orderData);
+
+            // 2. Thử lưu vào BE nếu BE có endpoint /api/orders
             const apiUrl = import.meta.env.VITE_API_URL;
+            if (apiUrl) {
+                fetch(`${apiUrl}/api/orders`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(orderData)
+                }).catch(() => null);
+            }
+
             let checkoutUrl = null;
 
             if (apiUrl) {
-                // Ưu tiên gọi API backend PayOS
+                // Ưu tiên gọi API backend PayOS nếu có
                 const response = await fetch(`${apiUrl}/api/create-payment-link`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -227,14 +330,15 @@ function User() {
                 return;
             }
 
-            // Nếu Backend chưa có PayOS hoặc đang cấu hình, thông báo và hỗ trợ link PayOS demo
-            alert(`Đang chuyển hướng tới cổng thanh toán PayOS cho đơn hàng #${orderCode} (${totalAmount.toLocaleString('vi-VN')} đ)...`);
-            
-            // Giả lập chuyển hướng tới PayOS hoặc lưu đơn hàng
+            // Hiển thị thông báo đặt hàng thành công
+            showToast(`Mã đơn #${orderCode} - Tổng tiền: ${totalAmount.toLocaleString('vi-VN')} đ. Đã lưu hệ thống!`, 'success', 'Đặt hàng thành công 🎉');
+
+            // Cập nhật trạng thái thành công cho giao diện & làm mới danh sách đơn hàng
             setOrderSuccess(orderData);
+            fetchUserOrders();
         } catch (error) {
-            console.error("Lỗi tạo thanh toán PayOS:", error);
-            alert("Có lỗi khi kết nối với cổng thanh toán PayOS. Vui lòng thử lại!");
+            console.error("Lỗi đặt hàng:", error);
+            showToast("Có lỗi khi xử lý đơn hàng. Vui lòng thử lại!", 'error', 'Đặt hàng thất bại');
         } finally {
             setIsSubmitting(false);
         }
@@ -280,8 +384,10 @@ function User() {
 
     const currentDisplayImg = productImages[activeImageIndex] || productImages[0] || bcn;
 
+    const isLightMode = themeMode === 'light';
+
     return (
-        <div className="user-page">
+        <div className={`user-page ${isLightMode ? 'user-light-mode' : ''}`}>
             {/* Header đồng bộ chuẩn BCN */}
             <header className="user-header">
                 <div className="user-logo">
@@ -293,6 +399,27 @@ function User() {
                 </div>
 
                 <div className="header-right">
+                    <button
+                        className="theme-toggle-btn user-orders-btn"
+                        onClick={() => {
+                            fetchUserOrders();
+                            setShowOrdersModal(true);
+                        }}
+                        title="Xem danh sách đơn hàng của bạn"
+                    >
+                        <ClipboardList size={16} />
+                        <span>Đơn Hàng ({userOrders.length})</span>
+                    </button>
+
+                    <button
+                        className="theme-toggle-btn"
+                        onClick={toggleThemeMode}
+                        title={`Chế độ hiện tại: ${themeMode === 'auto' ? 'Theo thời gian thực' : themeMode === 'light' ? 'Chế độ Sáng' : 'Chế độ Tối'}`}
+                    >
+                        {themeMode === 'light' ? <Sun size={16} /> : <Moon size={16} />}
+                        <span>Theme: {themeMode === 'auto' ? 'Auto (Giờ)' : themeMode === 'light' ? 'Sáng' : 'Tối'}</span>
+                    </button>
+
                     <Link to="/admin" className="header-admin-link">
                         <Shield size={15} /> Quản Trị Admin
                     </Link>
@@ -601,8 +728,8 @@ function User() {
                                         {isSubmitting
                                             ? "Đang gửi đơn hàng..."
                                             : !selectedProduct.inStock
-                                            ? "Tạm hết hàng"
-                                            : "Đặt Mua Ngay"}
+                                                ? "Tạm hết hàng"
+                                                : "Đặt Mua Ngay"}
                                     </button>
                                 </div>
                             </div>
@@ -666,6 +793,117 @@ function User() {
                     <p className="footer-credit">Designed with <Heart size={14} className="heart-icon" /> by BCN Dev Team</p>
                 </div>
             </footer>
+
+            {/* MODAL LỊCH SỬ ĐƠN HÀNG ĐÃ ĐẶT */}
+            {showOrdersModal && (
+                <div className="orders-modal-overlay" onClick={() => setShowOrdersModal(false)}>
+                    <div className="orders-modal-container" onClick={(e) => e.stopPropagation()}>
+                        <div className="orders-modal-header">
+                            <div className="modal-title-wrap">
+                                <ClipboardList size={22} className="modal-icon" />
+                                <div>
+                                    <h3>Lịch Sử Đơn Hàng Đã Đặt</h3>
+                                    <p>Xem chi tiết từng sản phẩm, giá cả và tổng thanh toán</p>
+                                </div>
+                            </div>
+                            <button className="btn-close-modal" onClick={() => setShowOrdersModal(false)}>
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="orders-modal-body">
+                            {userOrders.length === 0 ? (
+                                <div className="orders-empty-state">
+                                    <ShoppingBag size={48} className="empty-icon" />
+                                    <h4>Bạn chưa có đơn hàng nào</h4>
+                                    <p>Hãy chọn sản phẩm bạn yêu thích và bấm "Đặt Hàng Ngay" để lên đơn nhé!</p>
+                                </div>
+                            ) : (
+                                <div className="orders-list">
+                                    {userOrders.map((ord) => (
+                                        <div key={ord.id || ord.order_code} className="order-history-card">
+                                            <div className="order-card-header">
+                                                <div className="order-code-badge">
+                                                    Mã đơn: <strong>#{ord.order_code || ord.id}</strong>
+                                                </div>
+                                                <div className="order-time">
+                                                    <Clock size={13} />
+                                                    <span>{ord.created_at ? new Date(ord.created_at).toLocaleString('vi-VN') : 'Vừa đặt'}</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="order-card-content">
+                                                <div className="order-product-info">
+                                                    <h4 className="order-item-title">{ord.product_name}</h4>
+                                                    <div className="order-item-variants">
+                                                        <span className="variant-pill">Phân loại: <strong>{ord.gender === 'Female' ? 'Nữ' : 'Nam'}</strong></span>
+                                                        <span className="variant-pill">Size: <strong>{ord.size}</strong></span>
+                                                        <span className="variant-pill">Số lượng: <strong>x{ord.quantity}</strong></span>
+                                                    </div>
+                                                </div>
+
+                                                <div className="order-pricing-breakdown">
+                                                    <div className="price-item-row">
+                                                        <span className="price-label">Đơn giá từng món:</span>
+                                                        <span className="price-val">{Number(ord.price || 0).toLocaleString('vi-VN')} đ</span>
+                                                    </div>
+                                                    <div className="price-item-row">
+                                                        <span className="price-label">Số lượng đặt:</span>
+                                                        <span className="price-val">x {ord.quantity || 1}</span>
+                                                    </div>
+                                                    <div className="price-item-row total-row">
+                                                        <span className="price-label">Tổng thanh toán:</span>
+                                                        <span className="price-val total-highlight">
+                                                            {Number(ord.total_price || (ord.price * (ord.quantity || 1)) || 0).toLocaleString('vi-VN')} đ
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="order-card-footer">
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    {ord.status === 'CANCELLED' ? (
+                                                        <span className="order-status-tag status-cancelled">
+                                                            <X size={13} /> Đã hủy
+                                                        </span>
+                                                    ) : (
+                                                        <span className="order-status-tag status-success">
+                                                            <Check size={13} /> Đã ghi nhận đơn hàng
+                                                        </span>
+                                                    )}
+                                                    <span className="buyer-name-tag">Người đặt: {ord.name || user?.name || 'Khách hàng BCN'}</span>
+                                                </div>
+
+                                                {ord.status !== 'CANCELLED' && (
+                                                    <button 
+                                                        type="button"
+                                                        className="btn-cancel-order"
+                                                        onClick={() => handleCancelOrder(ord)}
+                                                        title="Hủy đơn hàng này"
+                                                    >
+                                                        <X size={13} /> Hủy đơn hàng
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* THÔNG BÁO TOAST & MODAL XÁC NHẬN */}
+            <div className="toast-container">
+                <Toast toast={toast} onClose={() => setToast(null)} />
+            </div>
+
+            <ConfirmModal 
+                modal={confirmModal} 
+                onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })} 
+                onConfirm={confirmModal.onConfirm} 
+            />
         </div>
     );
 }

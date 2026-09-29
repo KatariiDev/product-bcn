@@ -5,24 +5,28 @@
 }
 
 html {
-  min-height: 100vh;
+  height: 100%;
   width: 100%;
   font-family: "Montserrat", sans-serif;
   font-weight: 500;
   background-color: black;
+  overflow-x: hidden;
 }
 
 body {
-  min-height: 100vh;
+  height: 100%;
   width: 100%;
   margin: 0;
   padding: 0;
   background-color: black;
+  overflow-x: hidden;
 }
 
 #root {
   min-height: 100vh;
   width: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .counter {

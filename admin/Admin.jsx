@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './Admin.css';
-import { Plus, Trash2, Edit3, Image as ImageIcon, Save, ArrowLeft, RefreshCw, X, Upload, Star } from 'lucide-react';
+import { Plus, Trash2, Edit3, Image as ImageIcon, Save, ArrowLeft, RefreshCw, X, Upload, Star, Sun, Moon, ShoppingBag, CheckCircle, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import bcn from '../src/assets/bcn.png';
+import { supabaseApi } from '../src/supabaseClient';
+import { Toast, ConfirmModal } from '../src/components/Toast';
 
 export const INITIAL_PRODUCTS = [
   {
@@ -115,9 +117,62 @@ const MAX_IMAGES = 10;
 
 function Admin() {
   const [products, setProducts] = useState(() => getStoredProducts());
+  const [orders, setOrders] = useState([]);
+  const [activeTab, setActiveTab] = useState('products'); // 'products' | 'orders'
+  const [isSyncing, setIsSyncing] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const fileInputRef = useRef(null);
   const coverFileInputRef = useRef(null);
+
+  // Tải sản phẩm & đơn hàng từ Supabase
+  const fetchRemoteData = async () => {
+    setIsSyncing(true);
+    try {
+      // 1. Lấy danh sách sản phẩm
+      const remoteProds = await supabaseApi.getProducts();
+      if (remoteProds && Array.isArray(remoteProds) && remoteProds.length > 0) {
+        const formatted = remoteProds.map(p => ({
+          id: p.id,
+          name: p.name,
+          tag: p.tag,
+          category: p.category,
+          price: Number(p.price),
+          oldPrice: p.old_price ? Number(p.old_price) : null,
+          sizes: Array.isArray(p.sizes) ? p.sizes : ['S', 'M', 'L', 'XL'],
+          genders: Array.isArray(p.genders) ? p.genders : ['Male', 'Female'],
+          inStock: p.in_stock !== false,
+          badge: p.badge || '',
+          image: p.image || bcn,
+          images: Array.isArray(p.images) && p.images.length > 0 ? p.images : [p.image || bcn],
+          description: p.description || ''
+        }));
+        setProducts(formatted);
+        saveStoredProducts(formatted);
+      } else if (remoteProds && remoteProds.length === 0) {
+        // Nếu DB Supabase trống, tự động đưa các sản phẩm mẫu ban đầu lên Supabase
+        for (const item of INITIAL_PRODUCTS) {
+          await supabaseApi.upsertProduct(item);
+        }
+      }
+
+      // 2. Lấy danh sách đơn hàng
+      const remoteOrders = await supabaseApi.getOrders();
+      if (remoteOrders && Array.isArray(remoteOrders)) {
+        setOrders(remoteOrders);
+      }
+    } catch (err) {
+      console.warn("Lỗi sync Supabase:", err);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRemoteData();
+    // Tự động kiểm tra cập nhật mỗi 5 giây để đồng bộ real-time giữa các máy
+    const interval = setInterval(fetchRemoteData, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -138,11 +193,33 @@ function Admin() {
     saveStoredProducts(products);
   }, [products]);
 
+  const [toast, setToast] = useState(null);
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+
+  const showToast = (message, type = 'info', title = '') => {
+    setToast({ message, type, title });
+    setTimeout(() => {
+      setToast(null);
+    }, 4000);
+  };
+
   const handleResetDefaults = () => {
-    if (window.confirm('Khôi phục danh sách sản phẩm mẫu ban đầu?')) {
-      setProducts(INITIAL_PRODUCTS);
-      saveStoredProducts(INITIAL_PRODUCTS);
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: 'Khôi Phục Dữ Liệu Gốc',
+      message: 'Bạn có chắc chắn muốn khôi phục danh sách sản phẩm mẫu ban đầu lên Supabase không?',
+      confirmText: 'Khôi phục ngay',
+      cancelText: 'Hủy bỏ',
+      danger: true,
+      onConfirm: async () => {
+        setProducts(INITIAL_PRODUCTS);
+        saveStoredProducts(INITIAL_PRODUCTS);
+        for (const item of INITIAL_PRODUCTS) {
+          await supabaseApi.upsertProduct(item);
+        }
+        showToast('Đã khôi phục sản phẩm mẫu thành công!', 'success', 'Thành công');
+      }
+    });
   };
 
   const handleEdit = (p) => {
@@ -170,13 +247,26 @@ function Admin() {
   };
 
   const handleDelete = (id) => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa sản phẩm này?')) {
-      const updated = products.filter(p => p.id !== id);
-      setProducts(updated);
-      if (editingProduct === id) {
-        setEditingProduct(null);
+    const itemToDelete = products.find(p => p.id === id);
+    const itemName = itemToDelete?.name || 'sản phẩm này';
+    setConfirmModal({
+      isOpen: true,
+      title: 'Xóa Sản Phẩm',
+      message: `Bạn có chắc chắn muốn xóa "${itemName}" khỏi hệ thống không?`,
+      confirmText: 'Xóa sản phẩm',
+      cancelText: 'Giữ lại',
+      danger: true,
+      onConfirm: async () => {
+        const updated = products.filter(p => p.id !== id);
+        setProducts(updated);
+        saveStoredProducts(updated);
+        await supabaseApi.deleteProduct(id);
+        if (editingProduct === id) {
+          setEditingProduct(null);
+        }
+        showToast(`Đã xóa "${itemName}" thành công!`, 'success', 'Đã xóa');
       }
-    }
+    });
   };
 
   // Chọn ảnh từ máy tính cho ảnh chính
@@ -185,7 +275,7 @@ function Admin() {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      alert('Vui lòng chọn file hình ảnh hợp lệ (PNG, JPG, WEBP)!');
+      showToast('Vui lòng chọn file hình ảnh hợp lệ (PNG, JPG, WEBP)!', 'error', 'File không hợp lệ');
       return;
     }
 
@@ -214,7 +304,7 @@ function Admin() {
 
     const remainingSlots = MAX_IMAGES - formData.images.length;
     if (remainingSlots <= 0) {
-      alert(`Đã đạt giới hạn tối đa ${MAX_IMAGES} hình ảnh cho mỗi sản phẩm!`);
+      showToast(`Đã đạt giới hạn tối đa ${MAX_IMAGES} hình ảnh cho mỗi sản phẩm!`, 'warning', 'Giới hạn ảnh');
       return;
     }
 
@@ -246,7 +336,7 @@ function Admin() {
   // Thêm 1 ô nhập URL ảnh mới
   const handleAddImageUrl = () => {
     if (formData.images.length >= MAX_IMAGES) {
-      alert(`Chỉ được phép thêm tối đa ${MAX_IMAGES} hình ảnh!`);
+      showToast(`Chỉ được phép thêm tối đa ${MAX_IMAGES} hình ảnh!`, 'warning', 'Giới hạn ảnh');
       return;
     }
     setFormData(prev => ({
@@ -292,7 +382,7 @@ function Admin() {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!formData.name.trim() || !formData.price) {
-      alert('Vui lòng nhập tên và giá sản phẩm!');
+      showToast('Vui lòng nhập tên và giá sản phẩm!', 'warning', 'Thiếu thông tin');
       return;
     }
 
@@ -323,12 +413,20 @@ function Admin() {
       description: formData.description
     };
 
+    let updatedList;
     if (editingProduct) {
-      setProducts(products.map(p => p.id === editingProduct ? productPayload : p));
+      updatedList = products.map(p => p.id === editingProduct ? productPayload : p);
+      setProducts(updatedList);
       setEditingProduct(null);
     } else {
-      setProducts([productPayload, ...products]);
+      updatedList = [productPayload, ...products];
+      setProducts(updatedList);
     }
+
+    saveStoredProducts(updatedList);
+    // Đồng bộ lên cơ sở dữ liệu Supabase online (mọi máy cập nhật ngay)
+    supabaseApi.upsertProduct(productPayload);
+    showToast(editingProduct ? 'Đã lưu thay đổi sản phẩm thành công!' : 'Đã thêm sản phẩm mới thành công!', 'success', 'Thành công');
 
     // Reset form
     setFormData({
@@ -347,8 +445,17 @@ function Admin() {
     });
   };
 
+  const [themeMode, setThemeMode] = useState(() => localStorage.getItem('app_theme_mode') || 'auto');
+
+  const toggleThemeMode = () => {
+    const nextMode = themeMode === 'light' ? 'dark' : themeMode === 'dark' ? 'auto' : 'light';
+    setThemeMode(nextMode);
+    localStorage.setItem('app_theme_mode', nextMode);
+    window.dispatchEvent(new Event('theme_mode_changed'));
+  };
+
   return (
-    <div className="admin-page">
+    <div className={`admin-page ${themeMode === 'light' ? 'admin-light-mode' : ''}`}>
       <header className="admin-header">
         <div className="admin-brand">
           <img src={bcn} alt="BCN" className="admin-logo" />
@@ -358,6 +465,15 @@ function Admin() {
           </div>
         </div>
         <div className="admin-actions">
+          <button 
+            className="btn-secondary" 
+            onClick={toggleThemeMode}
+            title={`Chế độ theme: ${themeMode}`}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            {themeMode === 'light' ? <Sun size={16} /> : <Moon size={16} />}
+            <span>Theme: {themeMode === 'auto' ? 'Auto (Giờ)' : themeMode === 'light' ? 'Sáng' : 'Tối'}</span>
+          </button>
           <button className="btn-secondary" onClick={handleResetDefaults}>
             <RefreshCw size={16} /> Reset mẫu
           </button>
@@ -481,7 +597,7 @@ function Admin() {
             <div className="primary-cover-box">
               <div className="cover-label-row">
                 <label>
-                  <Star size={15} color="#ede9e3" /> Ảnh Hiển Thị Chính Của Sản Phẩm
+                  <Star size={15} className="star-icon" /> Ảnh Hiển Thị Chính Của Sản Phẩm
                 </label>
                 <span className="primary-badge-tag">Ảnh đại diện</span>
               </div>
@@ -641,87 +757,198 @@ function Admin() {
           </form>
         </div>
 
-        {/* Danh sách sản phẩm hiện tại */}
+        {/* Danh sách sản phẩm & Quản lý đơn hàng */}
         <div className="admin-card list-card">
           <div className="list-header">
-            <h2>Danh Sách Sản Phẩm ({products.length})</h2>
-            <span className="sync-badge">Tự động đồng bộ sang User Page</span>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <button 
+                type="button"
+                className={`btn-secondary ${activeTab === 'products' ? 'tab-active' : ''}`}
+                onClick={() => setActiveTab('products')}
+                style={{
+                  background: activeTab === 'products' ? '#0284c7' : undefined,
+                  color: activeTab === 'products' ? '#fff' : undefined,
+                  borderColor: activeTab === 'products' ? '#0284c7' : undefined
+                }}
+              >
+                Sản Phẩm ({products.length})
+              </button>
+              <button 
+                type="button"
+                className={`btn-secondary ${activeTab === 'orders' ? 'tab-active' : ''}`}
+                onClick={() => setActiveTab('orders')}
+                style={{
+                  background: activeTab === 'orders' ? '#0284c7' : undefined,
+                  color: activeTab === 'orders' ? '#fff' : undefined,
+                  borderColor: activeTab === 'orders' ? '#0284c7' : undefined,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <ShoppingBag size={15} />
+                Đơn Hàng ({orders.length})
+              </button>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <button 
+                type="button"
+                className="btn-secondary"
+                onClick={fetchRemoteData}
+                title="Đồng bộ ngay với Supabase"
+                style={{ padding: '6px 12px', fontSize: '12px' }}
+              >
+                <RefreshCw size={13} className={isSyncing ? 'spinning' : ''} /> Đồng bộ
+              </button>
+              <span className="sync-badge">🟢 Supabase Realtime</span>
+            </div>
           </div>
 
-          <div className="product-table-wrapper">
-            <table className="product-table">
-              <thead>
-                <tr>
-                  <th>Hình ảnh</th>
-                  <th>Thông tin sản phẩm</th>
-                  <th>Danh mục</th>
-                  <th>Giá</th>
-                  <th>Trạng thái</th>
-                  <th>Hành động</th>
-                </tr>
-              </thead>
-              <tbody>
-                {products.length === 0 ? (
+          {activeTab === 'products' ? (
+            <div className="product-table-wrapper">
+              <table className="product-table">
+                <thead>
                   <tr>
-                    <td colSpan={6} style={{ textAlign: 'center', padding: '30px' }}>
-                      Chưa có sản phẩm nào. Hãy thêm sản phẩm mới!
-                    </td>
+                    <th>Hình ảnh</th>
+                    <th>Thông tin sản phẩm</th>
+                    <th>Danh mục</th>
+                    <th>Giá</th>
+                    <th>Trạng thái</th>
+                    <th>Hành động</th>
                   </tr>
-                ) : (
-                  products.map((item) => (
-                    <tr key={item.id}>
-                      <td>
-                        <div className="table-img-wrap">
-                          <img src={item.image || (item.images && item.images[0]) || bcn} alt={item.name} />
-                          {item.images && item.images.length > 1 && (
-                            <span className="img-count-tag">+{item.images.length}</span>
-                          )}
-                        </div>
-                      </td>
-                      <td>
-                        <div className="table-name">{item.name}</div>
-                        <div className="table-tag">{item.tag}</div>
-                      </td>
-                      <td>
-                        <span className="cat-badge">{item.category}</span>
-                      </td>
-                      <td>
-                        <div className="table-price">{item.price?.toLocaleString('vi-VN')} đ</div>
-                        {item.oldPrice && (
-                          <div className="table-oldprice">{item.oldPrice?.toLocaleString('vi-VN')} đ</div>
-                        )}
-                      </td>
-                      <td>
-                        <span className={`status-pill ${item.inStock ? 'in-stock' : 'out-stock'}`}>
-                          {item.inStock ? 'Còn hàng' : 'Hết hàng'}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="action-buttons">
-                          <button
-                            className="btn-icon edit"
-                            onClick={() => handleEdit(item)}
-                            title="Chỉnh sửa"
-                          >
-                            <Edit3 size={15} />
-                          </button>
-                          <button
-                            className="btn-icon delete"
-                            onClick={() => handleDelete(item.id)}
-                            title="Xóa"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </div>
+                </thead>
+                <tbody>
+                  {products.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} style={{ textAlign: 'center', padding: '30px' }}>
+                        Chưa có sản phẩm nào. Hãy thêm sản phẩm mới!
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ) : (
+                    products.map((item) => (
+                      <tr key={item.id}>
+                        <td>
+                          <div className="table-img-wrap">
+                            <img src={item.image || (item.images && item.images[0]) || bcn} alt={item.name} />
+                            {item.images && item.images.length > 1 && (
+                              <span className="img-count-tag">+{item.images.length}</span>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <div className="table-name">{item.name}</div>
+                          <div className="table-tag">{item.tag}</div>
+                        </td>
+                        <td>
+                          <span className="cat-badge">{item.category}</span>
+                        </td>
+                        <td>
+                          <div className="table-price">{item.price?.toLocaleString('vi-VN')} đ</div>
+                          {item.oldPrice && (
+                            <div className="table-oldprice">{item.oldPrice?.toLocaleString('vi-VN')} đ</div>
+                          )}
+                        </td>
+                        <td>
+                          <span className={`status-pill ${item.inStock ? 'in-stock' : 'out-stock'}`}>
+                            {item.inStock ? 'Còn hàng' : 'Hết hàng'}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="action-buttons">
+                            <button
+                              className="btn-icon edit"
+                              onClick={() => handleEdit(item)}
+                              title="Chỉnh sửa"
+                            >
+                              <Edit3 size={15} />
+                            </button>
+                            <button
+                              className="btn-icon delete"
+                              onClick={() => handleDelete(item.id)}
+                              title="Xóa"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            /* TAB ĐƠN HÀNG */
+            <div className="product-table-wrapper">
+              <table className="product-table">
+                <thead>
+                  <tr>
+                    <th>Mã Đơn</th>
+                    <th>Khách Hàng</th>
+                    <th>Sản Phẩm</th>
+                    <th>Phân Loại</th>
+                    <th>Số Lượng</th>
+                    <th>Tổng Tiền</th>
+                    <th>Thời Gian</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orders.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} style={{ textAlign: 'center', padding: '35px', color: '#94a3b8' }}>
+                        Chưa có đơn hàng nào từ người dùng. Khi User bấm Đặt Hàng, đơn sẽ lập tức xuất hiện tại đây!
+                      </td>
+                    </tr>
+                  ) : (
+                    orders.map((ord) => (
+                      <tr key={ord.id || ord.order_code}>
+                        <td>
+                          <span style={{ fontWeight: 700, color: '#0284c7' }}>
+                            #{ord.order_code || ord.id}
+                          </span>
+                        </td>
+                        <td>
+                          <div style={{ fontWeight: 600 }}>{ord.name}</div>
+                          <div style={{ fontSize: '11px', color: '#94a3b8' }}>ID: {ord.zalo_id || 'guest'}</div>
+                        </td>
+                        <td>
+                          <div style={{ fontWeight: 600 }}>{ord.product_name}</div>
+                        </td>
+                        <td>
+                          <span className="cat-badge" style={{ marginRight: '4px' }}>{ord.gender}</span>
+                          <span className="cat-badge" style={{ fontWeight: 700 }}>Size {ord.size}</span>
+                        </td>
+                        <td style={{ textAlign: 'center', fontWeight: 700 }}>
+                          {ord.quantity}
+                        </td>
+                        <td>
+                          <div className="table-price">
+                            {Number(ord.total_price || (ord.price * ord.quantity) || 0).toLocaleString('vi-VN')} đ
+                          </div>
+                        </td>
+                        <td style={{ fontSize: '12px', color: '#94a3b8' }}>
+                          {ord.created_at ? new Date(ord.created_at).toLocaleString('vi-VN') : 'Vừa xong'}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* THÔNG BÁO TOAST & MODAL XÁC NHẬN */}
+      <div className="toast-container">
+        <Toast toast={toast} onClose={() => setToast(null)} />
+      </div>
+
+      <ConfirmModal 
+        modal={confirmModal} 
+        onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })} 
+        onConfirm={confirmModal.onConfirm} 
+      />
     </div>
   );
 }
