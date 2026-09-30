@@ -559,7 +559,7 @@ function Admin() {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name.trim() || !formData.price) {
       showToast('Vui lòng nhập tên và giá sản phẩm!', 'warning', 'Thiếu thông tin');
@@ -605,7 +605,7 @@ function Admin() {
 
     saveStoredProducts(updatedList);
     // Đồng bộ lên cơ sở dữ liệu Supabase online (mọi máy cập nhật ngay)
-    supabaseApi.upsertProduct(productPayload);
+    await supabaseApi.upsertProduct(productPayload);
     showToast(editingProduct ? 'Đã lưu thay đổi sản phẩm thành công!' : 'Đã thêm sản phẩm mới thành công!', 'success', 'Thành công');
 
     // Reset form
