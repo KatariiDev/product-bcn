@@ -154,13 +154,14 @@ function Admin() {
         const zaloId = u.id || u.zalo_id;
         const role = await supabaseApi.getUserRole(zaloId);
         if (role !== 'admin') {
-          alert('Tài khoản của bạn không có quyền truy cập trang Quản Trị!');
+          sessionStorage.setItem('auth_error', 'Tài khoản của bạn không có quyền truy cập trang Quản Trị!');
           window.location.href = '/user';
           return;
         }
         setIsAuthorized(true);
       } catch (err) {
         console.error('Lỗi xác thực quyền admin:', err);
+        sessionStorage.setItem('auth_error', 'Không thể xác thực quyền truy cập. Vui lòng thử lại!');
         window.location.href = '/user';
       }
     };
@@ -1226,8 +1227,8 @@ function Admin() {
                               outline: 'none'
                             }}
                           >
-                            <option value="user">👤 User</option>
-                            <option value="admin">🛡️ Admin</option>
+                            <option value="user">User</option>
+                            <option value="admin">Admin</option>
                           </select>
                         </td>
                         <td style={{ fontSize: '12px', color: '#94a3b8' }}>

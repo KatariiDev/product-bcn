@@ -535,24 +535,53 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 80px 20px;
-    background: rgba(19, 21, 25, 0.5);
-    border-radius: 16px;
-    border: 1px dashed rgba(255, 255, 255, 0.1);
-    color: #8b8f99;
+    padding: 70px 24px;
+    background: rgba(18, 24, 38, 0.7);
+    border-radius: 18px;
+    border: 1.5px dashed rgba(255, 255, 255, 0.2);
+    color: #f1f5f9;
     gap: 14px;
+    text-align: center;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+}
+
+.no-products-found svg {
+    color: #38bdf8;
+    filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.4));
+    margin-bottom: 2px;
+}
+
+.no-products-found p {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: #f8fafc;
+    letter-spacing: -0.2px;
 }
 
 .btn-reset-filters {
-    padding: 8px 18px;
-    background: #ede9e3;
-    color: #111;
+    padding: 9px 20px;
+    background: #0284c7;
+    color: #ffffff;
     border: none;
-    border-radius: 8px;
-    font-size: 12px;
-    font-weight: 600;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
     cursor: pointer;
-    margin-top: 6px;
+    margin-top: 8px;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
+}
+
+.btn-reset-filters:hover {
+    background: #0369a1;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(2, 132, 199, 0.5);
+}
+
+.btn-reset-filters:active {
+    transform: translateY(0);
 }
 
 /* RIGHT PANEL: PRODUCT DETAIL & MULTI-IMAGE GALLERY */
@@ -1672,4 +1701,21 @@
     background: #f1f5f9;
     border-color: #cbd5e1;
     color: #475569;
+}
+
+/* Empty state khi lọc không có sản phẩm trong chế độ sáng */
+.user-page.user-light-mode .no-products-found {
+    background: #ffffff !important;
+    border: 1.5px dashed #cbd5e1 !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
+}
+
+.user-page.user-light-mode .no-products-found svg {
+    color: #0284c7 !important;
+    filter: none !important;
+}
+
+.user-page.user-light-mode .no-products-found p {
+    color: #0f172a !important;
+    font-weight: 700 !important;
 }
