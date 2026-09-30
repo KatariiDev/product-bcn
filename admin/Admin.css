@@ -270,7 +270,7 @@
   background: #101114 !important;
   border: 1px solid rgba(255, 255, 255, 0.12) !important;
   border-radius: 8px !important;
-  padding: 8px 14px !important;
+  padding: 8px 14px;
   color: #ffffff !important;
   font-size: 13.5px !important;
   font-family: inherit !important;
@@ -1399,6 +1399,40 @@
   .product-table td::before {
     min-width: 70px;
     font-size: 9px;
+  }
+}
+
+/* TÌM KIẾM TÀI KHOẢN */
+.admin-user-search-input:focus {
+  border-color: #a78bfa !important;
+  background: rgba(124, 58, 237, 0.08) !important;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+}
+
+.admin-page.admin-light-mode .admin-user-search-input {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+.admin-page.admin-light-mode .admin-user-search-input:focus {
+  border-color: #7c3aed !important;
+  background: #ffffff !important;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+}
+
+.admin-page.admin-light-mode .admin-user-search-input::placeholder {
+  color: #94a3b8 !important;
+}
+
+@media (max-width: 640px) {
+  .admin-user-search-wrap {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+
+  .admin-user-search-wrap > div {
+    max-width: 100% !important;
   }
 }
 

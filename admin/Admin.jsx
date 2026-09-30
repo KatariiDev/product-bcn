@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './Admin.css';
-import { Plus, Trash2, Edit3, Image as ImageIcon, Save, ArrowLeft, RefreshCw, X, Upload, Star, Sun, Moon, ShoppingBag, CheckCircle, Clock, Users, Shield, UserCheck } from 'lucide-react';
+import { Plus, Trash2, Edit3, Image as ImageIcon, Save, ArrowLeft, RefreshCw, X, Upload, Star, Sun, Moon, ShoppingBag, CheckCircle, Clock, Users, Shield, UserCheck, Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import bcn from '../src/assets/bcn.png';
 import { supabaseApi } from '../src/supabaseClient';
@@ -134,6 +134,7 @@ function Admin() {
   const [products, setProducts] = useState(() => getStoredProducts());
   const [orders, setOrders] = useState([]);
   const [users, setUsers] = useState([]);
+  const [userSearchQuery, setUserSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('products'); // 'products' | 'orders' | 'users'
   const [isSyncing, setIsSyncing] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -164,14 +165,13 @@ function Admin() {
   const handleAddCategory = () => {
     const trimmed = newCategoryInput.trim();
     if (!trimmed) return;
-    const value = trimmed.toLowerCase().replace(/\s+/g, '_');
-    const label = trimmed;
-    if (!allCategories.some(c => c.value === value)) {
-      const updated = [...customCategories, { value, label }];
+    // Dùng thẳng text gõ vào làm value — không convert lowercase hay gạch dưới
+    if (!allCategories.some(c => c.value === trimmed)) {
+      const updated = [...customCategories, { value: trimmed, label: trimmed }];
       setCustomCategories(updated);
       localStorage.setItem('admin_custom_categories', JSON.stringify(updated));
     }
-    setFormData(prev => ({ ...prev, category: value }));
+    setFormData(prev => ({ ...prev, category: trimmed }));
     setNewCategoryInput('');
   };
 
@@ -673,7 +673,7 @@ function Admin() {
             {themeMode === 'light' ? <Sun size={16} /> : <Moon size={16} />}
             <span>Theme: {themeMode === 'auto' ? 'Auto (Giờ)' : themeMode === 'light' ? 'Sáng' : 'Tối'}</span>
           </button>
-          <button className="btn-secondary" onClick={handleResetDefaults}>
+          <button className="btn-secondary" onClick={handleResetDefaults} style={{ display: 'none' }}>
             <RefreshCw size={16} /> Reset mẫu
           </button>
           <Link to="/user" className="btn-primary">
@@ -1217,31 +1217,105 @@ function Admin() {
           )}
 
           {/* ── TAB TÀI KHOẢN ─────────────────────────────── */}
-          {activeTab === 'users' && (
-            <div className="product-table-wrapper">
-              <div style={{ padding: '12px 16px', background: 'rgba(124,58,237,0.08)', borderRadius: '10px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#a78bfa' }}>
-                <Shield size={15} />
-                Quản lý tài khoản đăng nhập qua Zalo. Người dùng tự động xuất hiện khi đăng nhập lần đầu.
-              </div>
-              <table className="product-table">
-                <thead>
-                  <tr>
-                    <th>Người Dùng</th>
-                    <th>Zalo ID</th>
-                    <th>Quyền Hạn</th>
-                    <th>Đăng Nhập Cuối</th>
-                    <th>Thao Tác</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.length === 0 ? (
+          {activeTab === 'users' && (() => {
+            const filteredUsers = users.filter((u) => {
+              if (!userSearchQuery.trim()) return true;
+              const q = userSearchQuery.trim().toLowerCase();
+              const name = (u.name || '').toLowerCase();
+              const zaloId = (u.zalo_id || '').toLowerCase();
+              return name.includes(q) || zaloId.includes(q);
+            });
+
+            return (
+              <div className="product-table-wrapper">
+                <div style={{ padding: '12px 16px', background: 'rgba(124,58,237,0.08)', borderRadius: '10px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#a78bfa' }}>
+                  <Shield size={15} />
+                  Quản lý tài khoản đăng nhập qua Zalo. Người dùng tự động xuất hiện khi đăng nhập lần đầu.
+                </div>
+
+                {/* Thanh tìm kiếm tên tài khoản */}
+                <div className="admin-user-search-wrap" style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ position: 'relative', flex: 1, maxWidth: '360px' }}>
+                    <Search
+                      size={16}
+                      style={{
+                        position: 'absolute',
+                        left: '12px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        color: '#94a3b8',
+                        pointerEvents: 'none'
+                      }}
+                    />
+                    <input
+                      type="text"
+                      className="admin-user-search-input"
+                      placeholder="Tìm theo tên hoặc Zalo ID..."
+                      value={userSearchQuery}
+                      onChange={(e) => setUserSearchQuery(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '9px 36px 9px 36px',
+                        borderRadius: '10px',
+                        border: '1px solid rgba(255, 255, 255, 0.12)',
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        color: 'inherit',
+                        fontSize: '13px',
+                        outline: 'none',
+                        transition: 'border-color 0.2s, background 0.2s'
+                      }}
+                    />
+                    {userSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setUserSearchQuery('')}
+                        style={{
+                          position: 'absolute',
+                          right: '10px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          background: 'none',
+                          border: 'none',
+                          color: '#94a3b8',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          padding: '2px',
+                          borderRadius: '50%'
+                        }}
+                        title="Xóa tìm kiếm"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+                  <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+                    {userSearchQuery.trim() ? `Tìm thấy ${filteredUsers.length}/${users.length}` : `Tổng: ${users.length}`}
+                  </span>
+                </div>
+
+                <table className="product-table">
+                  <thead>
                     <tr>
-                      <td colSpan={5} style={{ textAlign: 'center', padding: '35px', color: '#94a3b8' }}>
-                        Chưa có tài khoản nào. Người dùng sẽ xuất hiện tại đây khi đăng nhập qua Zalo!
-                      </td>
+                      <th>Người Dùng</th>
+                      <th>Zalo ID</th>
+                      <th>Quyền Hạn</th>
+                      <th>Đăng Nhập Cuối</th>
+                      <th>Thao Tác</th>
                     </tr>
-                  ) : (
-                    users.map((u) => (
+                  </thead>
+                  <tbody>
+                    {filteredUsers.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} style={{ textAlign: 'center', padding: '35px', color: '#94a3b8' }}>
+                          {userSearchQuery.trim()
+                            ? `Không tìm thấy tài khoản nào khớp với "${userSearchQuery}".`
+                            : 'Chưa có tài khoản nào. Người dùng sẽ xuất hiện tại đây khi đăng nhập qua Zalo!'}
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredUsers.map((u) => (
                       <tr key={u.zalo_id}>
                         <td data-label="Người dùng">
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -1310,7 +1384,8 @@ function Admin() {
                 </tbody>
               </table>
             </div>
-          )}
+          );
+        })()}
         </div>
       </div>
 
