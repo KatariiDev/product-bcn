@@ -141,6 +141,40 @@ function Admin() {
   const fileInputRef = useRef(null);
   const coverFileInputRef = useRef(null);
 
+  // Danh mục tùy chỉnh do admin tự thêm (lưu localStorage)
+  const DEFAULT_CATEGORIES = [
+    { value: 'polo', label: 'Áo Polo' },
+    { value: 'tshirt', label: 'Áo Thun (T-Shirt)' },
+    { value: 'hoodie', label: 'Áo Hoodie' },
+    { value: 'jacket', label: 'Áo Khoác' },
+  ];
+  const [customCategories, setCustomCategories] = useState(() => {
+    try {
+      const saved = localStorage.getItem('admin_custom_categories');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const [newCategoryInput, setNewCategoryInput] = useState('');
+
+  const allCategories = [
+    ...DEFAULT_CATEGORIES,
+    ...customCategories.filter(c => !DEFAULT_CATEGORIES.some(d => d.value === c.value))
+  ];
+
+  const handleAddCategory = () => {
+    const trimmed = newCategoryInput.trim();
+    if (!trimmed) return;
+    const value = trimmed.toLowerCase().replace(/\s+/g, '_');
+    const label = trimmed;
+    if (!allCategories.some(c => c.value === value)) {
+      const updated = [...customCategories, { value, label }];
+      setCustomCategories(updated);
+      localStorage.setItem('admin_custom_categories', JSON.stringify(updated));
+    }
+    setFormData(prev => ({ ...prev, category: value }));
+    setNewCategoryInput('');
+  };
+
   // Kiểm tra quyền Admin khi truy cập trang
   useEffect(() => {
     const verifyAdmin = async () => {
@@ -185,8 +219,8 @@ function Admin() {
             name: p.name,
             tag: p.tag,
             category: p.category,
-            price: Number(p.price),
-            oldPrice: p.old_price ? Number(p.old_price) : null,
+            price: Math.round(Number(p.price)),
+            oldPrice: p.old_price ? Math.round(Number(p.old_price)) : null,
             sizes: Array.isArray(p.sizes) ? p.sizes : ['S', 'M', 'L', 'XL'],
             genders: Array.isArray(p.genders) ? p.genders : ['Male', 'Female'],
             inStock: p.in_stock !== false,
@@ -297,8 +331,8 @@ function Admin() {
             name: p.name,
             tag: p.tag,
             category: p.category,
-            price: Number(p.price),
-            oldPrice: p.old_price ? Number(p.old_price) : null,
+            price: Math.round(Number(p.price)),
+            oldPrice: p.old_price ? Math.round(Number(p.old_price)) : null,
             sizes: Array.isArray(p.sizes) ? p.sizes : ['S', 'M', 'L', 'XL'],
             genders: Array.isArray(p.genders) ? p.genders : ['Male', 'Female'],
             inStock: p.in_stock !== false,
@@ -548,8 +582,8 @@ function Admin() {
       name: formData.name,
       tag: formData.tag || 'Special Edition',
       category: formData.category,
-      price: Number(formData.price),
-      oldPrice: formData.oldPrice ? Number(formData.oldPrice) : null,
+      price: Math.round(Number(formData.price)),
+      oldPrice: formData.oldPrice ? Math.round(Number(formData.oldPrice)) : null,
       sizes: sizesArr.length > 0 ? sizesArr : ['S', 'M', 'L', 'XL'],
       genders: gendersArr.length > 0 ? gendersArr : ['Male', 'Female'],
       inStock: formData.inStock,
@@ -671,12 +705,29 @@ function Admin() {
                   value={formData.category}
                   onChange={e => setFormData({ ...formData, category: e.target.value })}
                 >
-                  <option value="all">Tất cả danh mục</option>
-                  <option value="polo">Áo Polo</option>
-                  <option value="tshirt">Áo Thun (T-Shirt)</option>
-                  <option value="hoodie">Áo Hoodie</option>
-                  <option value="jacket">Áo Khoác</option>
+                  {allCategories.map(cat => (
+                    <option key={cat.value} value={cat.value}>{cat.label}</option>
+                  ))}
                 </select>
+                {/* Input thêm danh mục mới */}
+                <div className="add-category-row">
+                  <input
+                    type="text"
+                    className="add-category-input"
+                    value={newCategoryInput}
+                    onChange={e => setNewCategoryInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddCategory(); } }}
+                    placeholder="Nhập danh mục mới rồi nhấn Enter..."
+                  />
+                  <button
+                    type="button"
+                    className="btn-add-category"
+                    onClick={handleAddCategory}
+                    title="Thêm danh mục"
+                  >
+                    +
+                  </button>
+                </div>
               </div>
 
               <div className="form-group">
@@ -785,7 +836,7 @@ function Admin() {
                     onChange={(e) => setFormData({ ...formData, primaryImage: e.target.value })}
                     placeholder="URL ảnh bìa chính hoặc tải từ máy tính..."
                   />
-                  <div style={{ display: 'flex', gap: '8px' }}>
+                  <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
                     <input
                       type="file"
                       ref={coverFileInputRef}
@@ -1019,7 +1070,7 @@ function Admin() {
                   ) : (
                     products.map((item) => (
                       <tr key={item.id}>
-                        <td>
+                        <td data-label="Ảnh">
                           <div className="table-img-wrap">
                             <img
                               src={resolveProductCover(item)}
@@ -1034,25 +1085,29 @@ function Admin() {
                             )}
                           </div>
                         </td>
-                        <td>
-                          <div className="table-name">{item.name}</div>
-                          <div className="table-tag">{item.tag}</div>
+                        <td data-label="Sản phẩm">
+                          <div>
+                            <div className="table-name">{item.name}</div>
+                            <div className="table-tag">{item.tag}</div>
+                          </div>
                         </td>
-                        <td>
+                        <td data-label="Danh mục">
                           <span className="cat-badge">{item.category}</span>
                         </td>
-                        <td>
-                          <div className="table-price">{item.price?.toLocaleString('vi-VN')} đ</div>
-                          {item.oldPrice && (
-                            <div className="table-oldprice">{item.oldPrice?.toLocaleString('vi-VN')} đ</div>
-                          )}
+                        <td data-label="Giá">
+                          <div>
+                            <div className="table-price">{item.price?.toLocaleString('vi-VN')} đ</div>
+                            {item.oldPrice && (
+                              <div className="table-oldprice">{item.oldPrice?.toLocaleString('vi-VN')} đ</div>
+                            )}
+                          </div>
                         </td>
-                        <td>
+                        <td data-label="Trạng thái">
                           <span className={`status-pill ${item.inStock ? 'in-stock' : 'out-stock'}`}>
                             {item.inStock ? 'Còn hàng' : 'Hết hàng'}
                           </span>
                         </td>
-                        <td>
+                        <td data-label="Thao tác">
                           <div className="action-buttons">
                             <button
                               className="btn-icon edit"
@@ -1105,31 +1160,35 @@ function Admin() {
                   ) : (
                     orders.map((ord) => (
                       <tr key={`${ord.order_code}-${ord.id}`}>
-                        <td>
+                        <td data-label="Mã đơn">
                           <span style={{ fontWeight: 700, color: '#0284c7' }}>
                             #{ord.order_code || ord.id}
                           </span>
                         </td>
-                        <td>
-                          <div style={{ fontWeight: 600 }}>{ord.name}</div>
-                          <div style={{ fontSize: '11px', color: '#94a3b8' }}>ID: {ord.zalo_id || 'guest'}</div>
+                        <td data-label="Khách hàng">
+                          <div>
+                            <div style={{ fontWeight: 600 }}>{ord.name}</div>
+                            <div style={{ fontSize: '11px', color: '#94a3b8' }}>ID: {ord.zalo_id || 'guest'}</div>
+                          </div>
                         </td>
-                        <td>
+                        <td data-label="Sản phẩm">
                           <div style={{ fontWeight: 600 }}>{ord.product_name}</div>
                         </td>
-                        <td>
-                          <span className="cat-badge" style={{ marginRight: '4px' }}>{ord.gender}</span>
-                          <span className="cat-badge" style={{ fontWeight: 700 }}>Size {ord.size}</span>
+                        <td data-label="Phân loại">
+                          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                            <span className="cat-badge">{ord.gender}</span>
+                            <span className="cat-badge" style={{ fontWeight: 700 }}>Size {ord.size}</span>
+                          </div>
                         </td>
-                        <td style={{ textAlign: 'center', fontWeight: 700 }}>
+                        <td data-label="SL" style={{ fontWeight: 700 }}>
                           {ord.quantity}
                         </td>
-                        <td>
+                        <td data-label="Tổng tiền">
                           <div className="table-price">
                             {Number(ord.total_price || (ord.price * ord.quantity) || 0).toLocaleString('vi-VN')} đ
                           </div>
                         </td>
-                        <td>
+                        <td data-label="Trạng thái">
                           <span
                             className={`status-pill ${ord.status === 'CANCELLED' ? 'out-stock' : 'in-stock'}`}
                             style={{ fontSize: '11px', padding: '3px 8px' }}
@@ -1137,10 +1196,10 @@ function Admin() {
                             {ord.status === 'CANCELLED' ? 'Đã hủy' : 'Chờ XL'}
                           </span>
                         </td>
-                        <td style={{ fontSize: '12px', color: '#94a3b8' }}>
+                        <td data-label="Thời gian" style={{ fontSize: '12px', color: '#94a3b8' }}>
                           {ord.created_at ? new Date(ord.created_at).toLocaleString('vi-VN') : 'Vừa xong'}
                         </td>
-                        <td style={{ textAlign: 'center' }}>
+                        <td data-label="Xóa">
                           <button
                             className="btn-icon delete"
                             onClick={() => handleDeleteOrder(ord)}
@@ -1184,21 +1243,21 @@ function Admin() {
                   ) : (
                     users.map((u) => (
                       <tr key={u.zalo_id}>
-                        <td>
+                        <td data-label="Người dùng">
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             {u.avatar ? (
                               <img
                                 src={u.avatar}
                                 alt={u.name}
-                                style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(124,58,237,0.4)' }}
+                                style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(124,58,237,0.4)', flexShrink: 0 }}
                                 onError={(e) => { e.target.style.display = 'none'; }}
                               />
                             ) : (
-                              <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(124,58,237,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>
+                              <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(124,58,237,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', flexShrink: 0 }}>
                                 {u.name?.[0] || '?'}
                               </div>
                             )}
-                            <div>
+                            <div style={{ minWidth: 0 }}>
                               <div style={{ fontWeight: 600 }}>{u.name || 'Ẩn danh'}</div>
                               <div style={{ fontSize: '11px', color: '#94a3b8' }}>
                                 Tham gia: {u.created_at ? new Date(u.created_at).toLocaleDateString('vi-VN') : 'N/A'}
@@ -1206,12 +1265,12 @@ function Admin() {
                             </div>
                           </div>
                         </td>
-                        <td>
-                          <code style={{ fontSize: '12px', background: 'rgba(255,255,255,0.06)', padding: '2px 8px', borderRadius: '6px', color: '#94a3b8' }}>
+                        <td data-label="Zalo ID">
+                          <code style={{ fontSize: '11px', background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: '6px', color: '#94a3b8', wordBreak: 'break-all' }}>
                             {u.zalo_id}
                           </code>
                         </td>
-                        <td>
+                        <td data-label="Quyền hạn">
                           <select
                             value={u.role || 'user'}
                             onChange={(e) => handleUpdateRole(u, e.target.value)}
@@ -1224,17 +1283,19 @@ function Admin() {
                               fontSize: '12px',
                               fontWeight: 700,
                               cursor: 'pointer',
-                              outline: 'none'
+                              outline: 'none',
+                              maxWidth: '120px',
+                              width: 'auto'
                             }}
                           >
                             <option value="user">User</option>
                             <option value="admin">Admin</option>
                           </select>
                         </td>
-                        <td style={{ fontSize: '12px', color: '#94a3b8' }}>
+                        <td data-label="Đăng nhập cuối" style={{ fontSize: '12px', color: '#94a3b8' }}>
                           {u.last_login ? new Date(u.last_login).toLocaleString('vi-VN') : 'Chưa đăng nhập'}
                         </td>
-                        <td style={{ textAlign: 'center' }}>
+                        <td data-label="Xóa">
                           <button
                             className="btn-icon delete"
                             onClick={() => handleDeleteUser(u)}

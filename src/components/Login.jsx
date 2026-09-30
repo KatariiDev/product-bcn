@@ -243,26 +243,9 @@ function Login() {
         timeTheme = 'theme-night';
     }
 
-    // Kiểm tra nếu người dùng đã tùy chỉnh chế độ sáng/tối trong Admin/User
-    const [savedThemeMode, setSavedThemeMode] = useState(() => localStorage.getItem('app_theme_mode') || 'auto');
-
-    useEffect(() => {
-        const handleThemeChange = () => {
-            setSavedThemeMode(localStorage.getItem('app_theme_mode') || 'auto');
-        };
-        window.addEventListener('storage', handleThemeChange);
-        window.addEventListener('theme_mode_changed', handleThemeChange);
-        return () => {
-            window.removeEventListener('storage', handleThemeChange);
-            window.removeEventListener('theme_mode_changed', handleThemeChange);
-        };
-    }, []);
-
-    const effectiveThemeClass = savedThemeMode === 'light'
-        ? 'mode-light theme-morning'
-        : savedThemeMode === 'dark'
-            ? 'mode-dark theme-night'
-            : timeTheme;
+    // Chế độ theme ở màn hình login luôn tự động thay đổi theo thời gian thực trong ngày
+    // (Sáng: theme-morning, Chiều: theme-afternoon, Tối: theme-evening, Đêm: theme-night)
+    const effectiveThemeClass = timeTheme;
 
     useEffect(() => {
         const handleZaloMessage = (event) => {
