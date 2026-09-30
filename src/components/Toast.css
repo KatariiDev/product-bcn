@@ -302,3 +302,57 @@
   background: #e2e8f0;
   color: #0f172a;
 }
+
+/* ==========================================================
+   RESPONSIVE CHO TOAST VÀ CONFIRM MODAL (MOBILE)
+   ========================================================== */
+@media (max-width: 600px) {
+  .toast-container {
+    top: 14px;
+    right: 14px;
+    left: 14px;
+  }
+
+  .toast-notification {
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px 14px;
+    font-size: 13px;
+  }
+
+  .custom-modal-overlay {
+    padding: 14px;
+  }
+
+  .custom-modal-box {
+    padding: 18px;
+    border-radius: 16px;
+    width: 100%;
+  }
+
+  .custom-modal-title {
+    font-size: 16px;
+  }
+
+  .custom-modal-message {
+    font-size: 13px;
+    margin-bottom: 18px;
+  }
+
+  .custom-modal-actions {
+    flex-direction: column-reverse;
+    gap: 8px;
+  }
+
+  .btn-modal-cancel,
+  .btn-modal-confirm {
+    width: 100%;
+    text-align: center;
+    padding: 11px;
+    font-size: 13px;
+    box-sizing: border-box;
+  }
+}
+

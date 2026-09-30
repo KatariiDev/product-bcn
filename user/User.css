@@ -1719,3 +1719,407 @@
     color: #0f172a !important;
     font-weight: 700 !important;
 }
+
+/* ==========================================================
+   RESPONSIVE CHO TABLET VÀ MOBILE (TABLET & MOBILE RESPONSIVE)
+   ========================================================== */
+
+/* ── TABLET (max-width: 1024px) ── */
+@media (max-width: 1024px) {
+    .user-header {
+        padding: 0 20px;
+        height: 70px;
+    }
+
+    .brand-title {
+        font-size: 14px;
+        letter-spacing: 2px;
+    }
+
+    .brand-sub {
+        font-size: 10px;
+    }
+
+    .header-right {
+        gap: 10px;
+    }
+
+    .theme-toggle-btn {
+        padding: 8px 12px;
+        font-size: 12px;
+    }
+
+    .theme-toggle-btn span {
+        display: none; /* Ẩn chữ dài trên tablet, chỉ hiện icon */
+    }
+
+    .header-admin-link {
+        padding: 6px 12px;
+        font-size: 12px;
+    }
+
+    .user-card {
+        padding: 4px 10px 4px 6px;
+        gap: 8px;
+    }
+
+    .user-avatar {
+        width: 32px;
+        height: 32px;
+    }
+
+    .user-name {
+        font-size: 12px;
+        max-width: 100px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .user-role {
+        font-size: 10px;
+    }
+
+    .filter-bar-container {
+        padding: 16px 20px 8px 20px;
+    }
+
+    .filter-bar {
+        padding: 12px 16px;
+        gap: 12px;
+    }
+
+    .search-box {
+        min-width: 200px;
+    }
+
+    .user-main-layout {
+        grid-template-columns: 1fr;
+        padding: 16px 20px 50px 20px;
+        gap: 24px;
+    }
+
+    .detail-sticky-wrap {
+        position: static; /* Không ghim cố định trên tablet/mobile để dễ lướt */
+        top: auto;
+    }
+
+    .products-grid {
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 18px;
+    }
+
+    .card-thumb {
+        height: 190px;
+    }
+
+    .user-footer {
+        padding: 40px 20px 24px 20px;
+    }
+
+    .footer-content {
+        grid-template-columns: 1fr 1fr;
+        gap: 30px;
+    }
+}
+
+/* ── MOBILE (max-width: 768px) ── */
+@media (max-width: 768px) {
+    .user-header {
+        padding: 0 14px;
+        height: 64px;
+    }
+
+    .user-logo {
+        gap: 10px;
+    }
+
+    .logo-img {
+        width: 36px;
+        height: 36px;
+    }
+
+    .brand-title {
+        font-size: 13px;
+        letter-spacing: 1px;
+    }
+
+    .brand-sub {
+        display: none; /* Ẩn sub-brand để chừa chỗ */
+    }
+
+    .header-right {
+        gap: 6px;
+    }
+
+    .theme-toggle-btn {
+        padding: 7px 10px;
+    }
+
+    .theme-toggle-btn span {
+        display: none;
+    }
+
+    .user-orders-btn span {
+        display: none; /* Chỉ hiện icon clipboard trên mobile */
+    }
+
+    .header-admin-link span,
+    .header-admin-link {
+        padding: 6px 10px;
+        font-size: 11px;
+    }
+
+    .user-card {
+        padding: 3px 6px;
+        background: transparent;
+        border: none;
+    }
+
+    .user-info {
+        display: none; /* Ẩn tên dài trên mobile, giữ avatar & nút logout */
+    }
+
+    .logout-button {
+        padding: 6px;
+    }
+
+    /* Filter Bar trên Mobile */
+    .filter-bar-container {
+        padding: 12px 14px 6px 14px;
+    }
+
+    .filter-bar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        padding: 12px 14px;
+        border-radius: 12px;
+    }
+
+    .search-box {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .filter-group {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        width: 100%;
+    }
+
+    .filter-select-wrap {
+        width: 100%;
+    }
+
+    .filter-select {
+        width: 100%;
+        box-sizing: border-box;
+        font-size: 12px;
+        padding: 8px 10px 8px 30px;
+    }
+
+    .filter-select-wrap:not(:first-child) .filter-select {
+        padding-left: 10px;
+    }
+
+    .select-icon {
+        left: 8px;
+    }
+
+    /* Ô tình trạng chiếm cả hàng ngang */
+    .filter-group .filter-select-wrap:nth-child(3) {
+        grid-column: span 2;
+    }
+
+    .filter-summary {
+        margin-left: 0;
+        text-align: right;
+        font-size: 12px;
+    }
+
+    /* Layout Chính */
+    .user-main-layout {
+        padding: 10px 14px 40px 14px;
+        gap: 20px;
+    }
+
+    .section-title-wrap {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+    }
+
+    .section-title-wrap h2 {
+        font-size: 16px;
+    }
+
+    .live-sync-indicator {
+        font-size: 11px;
+    }
+
+    .products-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .card-thumb {
+        height: 150px;
+    }
+
+    .card-body {
+        padding: 12px;
+    }
+
+    .card-tag {
+        font-size: 9px;
+        letter-spacing: 1px;
+        margin-bottom: 4px;
+    }
+
+    .card-title {
+        font-size: 13px;
+        margin-bottom: 6px;
+        -webkit-line-clamp: 2;
+    }
+
+    .card-price-row {
+        gap: 4px;
+        margin-bottom: 8px;
+        flex-wrap: wrap;
+    }
+
+    .card-price {
+        font-size: 14px;
+    }
+
+    .card-old-price {
+        font-size: 11px;
+    }
+
+    .card-footer-info {
+        font-size: 10px;
+        padding-top: 6px;
+    }
+
+    /* Khung Chi Tiết Sản Phẩm Bên Dưới */
+    .detail-sticky-wrap {
+        padding: 16px;
+        border-radius: 16px;
+    }
+
+    .detail-preview-banner {
+        height: 220px;
+    }
+
+    .thumb-btn {
+        width: 50px;
+        height: 50px;
+        border-radius: 8px;
+    }
+
+    .product-name {
+        font-size: 18px;
+        letter-spacing: 0.5px;
+    }
+
+    .product-price {
+        font-size: 20px;
+    }
+
+    .product-gender-choice,
+    .product-size-choice {
+        gap: 8px;
+    }
+
+    .choice {
+        padding: 7px 14px;
+        font-size: 12px;
+        flex: 1 1 calc(33.33% - 8px);
+        text-align: center;
+    }
+
+    .buy-button {
+        height: 44px;
+        font-size: 13px;
+    }
+
+    /* Modal Đơn Hàng */
+    .orders-modal-overlay {
+        padding: 10px;
+    }
+
+    .orders-modal-container {
+        max-height: 90vh;
+        border-radius: 16px;
+    }
+
+    .orders-modal-header {
+        padding: 14px 16px;
+    }
+
+    .modal-title-wrap h3 {
+        font-size: 16px;
+    }
+
+    .orders-modal-body {
+        padding: 14px;
+        gap: 12px;
+    }
+
+    .order-history-card {
+        padding: 12px;
+        gap: 10px;
+    }
+
+    .order-card-content {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .order-pricing-breakdown {
+        padding: 8px 10px;
+    }
+
+    /* Footer */
+    .footer-content {
+        grid-template-columns: 1fr;
+        gap: 24px;
+        margin-bottom: 24px;
+    }
+
+    .footer-col h4 {
+        margin-bottom: 12px;
+        font-size: 13px;
+    }
+
+    .footer-bottom {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+}
+
+/* ── SMALL MOBILE (max-width: 480px) ── */
+@media (max-width: 480px) {
+    .products-grid {
+        grid-template-columns: 1fr; /* 1 cột duy nhất cho màn hình cực nhỏ để sản phẩm to đẹp */
+    }
+
+    .card-thumb {
+        height: 200px;
+    }
+
+    .card-title {
+        font-size: 14px;
+    }
+
+    .card-price {
+        font-size: 16px;
+    }
+
+    .choice {
+        flex: 1 1 calc(50% - 8px);
+    }
+}

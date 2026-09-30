@@ -106,8 +106,8 @@ function User() {
                     name: p.name,
                     tag: p.tag,
                     category: p.category,
-                    price: Number(p.price),
-                    oldPrice: p.old_price ? Number(p.old_price) : null,
+                    price: Math.round(Number(p.price)),
+                    oldPrice: p.old_price ? Math.round(Number(p.old_price)) : null,
                     sizes: Array.isArray(p.sizes) ? p.sizes : ['S', 'M', 'L', 'XL'],
                     genders: Array.isArray(p.genders) ? p.genders : ['Male', 'Female'],
                     inStock: p.in_stock !== false,
@@ -551,10 +551,23 @@ function User() {
                                 className="filter-select"
                             >
                                 <option value="all">Tất cả danh mục</option>
-                                <option value="polo">Áo Polo</option>
-                                <option value="tshirt">Áo Thun (T-Shirt)</option>
-                                <option value="hoodie">Áo Hoodie</option>
-                                <option value="jacket">Áo Khoác</option>
+                                {/* Lấy category unique từ products thực tế */}
+                                {[...new Set(products.map(p => p.category).filter(Boolean))].map(cat => (
+                                    <option key={cat} value={cat}>
+                                        {{
+                                            polo: 'Áo Polo',
+                                            tshirt: 'Áo Thun (T-Shirt)',
+                                            hoodie: 'Áo Hoodie',
+                                            jacket: 'Áo Khoác',
+                                            sportswear: 'Áo Thể Thao',
+                                            shorts: 'Quần Short',
+                                            jogger: 'Quần Jogger',
+                                            cap: 'Mũ / Nón',
+                                            tote: 'Túi Tote / Balo',
+                                            accessories: 'Phụ Kiện',
+                                        }[cat] || cat}
+                                    </option>
+                                ))}
                             </select>
                         </div>
 
