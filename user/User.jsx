@@ -245,18 +245,6 @@ function User() {
     }, []);
 
     const handleLogout = async () => {
-        try {
-            const apiUrl = import.meta.env.VITE_API_URL;
-            if (apiUrl) {
-                // Gọi API backend huỷ session đăng nhập
-                await fetch(`${apiUrl}/api/logout`, {
-                    method: "POST",
-                    credentials: "include"
-                }).catch(() => { });
-            }
-        } catch (e) {
-            console.error("Lỗi đăng xuất server:", e);
-        }
 
         // Xóa toàn bộ dữ liệu lưu trữ phía client
         localStorage.removeItem("zalo_user");
