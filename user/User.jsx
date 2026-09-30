@@ -82,18 +82,7 @@ function User() {
                 ));
                 showToast(`Đơn hàng #${code} đã được hủy thành công!`, 'success', 'Đã hủy đơn');
 
-                // Cập nhật localStorage cache
-                try {
-                    let localOrders = JSON.parse(localStorage.getItem('aobcn_orders_cache') || '[]');
-                    localOrders = localOrders.map(o =>
-                        (o.order_code === ord.order_code || o.id === ord.id)
-                            ? { ...o, status: 'CANCELLED' }
-                            : o
-                    );
-                    localStorage.setItem('aobcn_orders_cache', JSON.stringify(localOrders));
-                } catch (e) {}
-
-                // Background: cập nhật trên Supabase (không cần await kết quả)
+                // Background: cập nhật trên Supabase (đồng bộ trạng thái CANCELLED)
                 supabaseApi.cancelOrder(ord.order_code, ord.id).catch(() => null);
             }
         });
@@ -233,7 +222,7 @@ function User() {
         }
     }, [selectedProduct]);
 
-    // Kiểm tra trạng thái thanh toán từ PayOS redirect về (payment=success hoặc cancel)
+    // Kiểm tra trạng thái thanh toán từ PayOS redirect về hoặc cảnh báo phân quyền
     useEffect(() => {
         const queryParams = new URLSearchParams(window.location.search);
         const paymentStatus = queryParams.get("payment") || queryParams.get("status");
@@ -245,6 +234,13 @@ function User() {
         } else if (paymentStatus === "cancel" || paymentStatus === "CANCELLED") {
             showToast(`Đơn hàng #${orderCode || ''} đã bị huỷ thanh toán.`, 'warning', 'Huỷ thanh toán');
             window.history.replaceState({}, document.title, window.location.pathname);
+        }
+
+        // Hiển thị toast thông báo nếu bị chuyển hướng do không đủ quyền admin
+        const authError = sessionStorage.getItem('auth_error');
+        if (authError) {
+            sessionStorage.removeItem('auth_error');
+            showToast(authError, 'error', 'Truy cập bị từ chối');
         }
     }, []);
 
@@ -266,17 +262,23 @@ function User() {
         localStorage.removeItem("zalo_user");
         localStorage.removeItem("zalo_user_role");
         localStorage.removeItem("zalo_login_result");
+        localStorage.removeItem("aobcn_orders_cache");
         sessionStorage.clear();
 
-        // Mở popup đăng xuất tài khoản Zalo trên trình duyệt nếu có thể
+        // Đặt flag: lần đăng nhập tiếp theo popup sẽ xóa session Zalo trước
+        localStorage.setItem("zalo_force_relogin", "1");
+
+        // Gọi Zalo logout ngầm qua iframe ẩn (không chuyển trang người dùng sang Zalo)
         try {
-            const logoutPopup = window.open("https://id.zalo.me/account/logout", "_blank", "width=100,height=100,left=-1000,top=-1000");
+            const iframe = document.createElement("iframe");
+            iframe.style.display = "none";
+            iframe.src = "https://id.zalo.me/account/logout";
+            document.body.appendChild(iframe);
+            // Chờ 1.5s để Zalo xóa cookie, rồi về trang login
             setTimeout(() => {
-                if (logoutPopup && !logoutPopup.closed) {
-                    logoutPopup.close();
-                }
+                try { document.body.removeChild(iframe); } catch (_) {}
                 window.location.href = "/";
-            }, 600);
+            }, 1500);
         } catch {
             window.location.href = "/";
         }
@@ -495,7 +497,7 @@ function User() {
 
                     {userRole === 'admin' && (
                         <Link to="/admin" className="header-admin-link">
-                            <Shield size={15} /> Quản Trị Admin
+                            <Shield size={15} /> Quản lý
                         </Link>
                     )}
 
@@ -508,7 +510,7 @@ function User() {
                         <div className="user-info">
                             <p className="user-name">{user.name}</p>
                             <span className="user-role">
-                                {userRole === 'admin' ? '🛡️ Quản trị viên' : 'Thành viên BCN'}
+                                {userRole === 'admin' ? 'Quản trị viên' : 'Thành viên'}
                             </span>
                         </div>
                         <button

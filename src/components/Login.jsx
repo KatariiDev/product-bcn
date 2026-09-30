@@ -202,8 +202,27 @@ function Login() {
             }
         }, 500);
 
-        loginPopup.location.href =
-            `${import.meta.env.VITE_API_URL}/dev/auth`;
+        const authUrl = `${import.meta.env.VITE_API_URL}/dev/auth`;
+        const forceRelogin = localStorage.getItem('zalo_force_relogin');
+
+        if (forceRelogin) {
+            // Vừa logout: cần xóa session Zalo trong popup trước rồi mới đăng nhập
+            localStorage.removeItem('zalo_force_relogin');
+            // Chuyển popup sang Zalo logout, sau 2.5s redirect sang auth
+            loginPopup.location.href = 'https://id.zalo.me/account/logout';
+            setTimeout(() => {
+                try {
+                    if (!loginPopup.closed) {
+                        loginPopup.location.href = authUrl;
+                    }
+                } catch (e) {
+                    // Cross-origin expected sau khi Zalo redirect
+                    try { loginPopup.location.href = authUrl; } catch (_) {}
+                }
+            }, 2500);
+        } else {
+            loginPopup.location.href = authUrl;
+        }
     };
 
     const hour = time.getHours();

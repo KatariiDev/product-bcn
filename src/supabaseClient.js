@@ -9,6 +9,11 @@ const headers = {
   'Prefer': 'return=representation'
 };
 
+// Dọn dẹp cache đơn hàng cũ trên localStorage để tránh lộ dữ liệu giữa các tài khoản
+try {
+  localStorage.removeItem('aobcn_orders_cache');
+} catch (e) {}
+
 export const supabaseApi = {
 
   // ── SẢN PHẨM ──────────────────────────────────────────────────────────────
@@ -102,17 +107,7 @@ export const supabaseApi = {
 
     console.log('[Supabase] createOrder payload:', supabasePayload);
 
-    // 1. Lưu vào localStorage ngay lập tức (user thấy đơn ngay)
-    try {
-      const localOrders = JSON.parse(localStorage.getItem('aobcn_orders_cache') || '[]');
-      localOrders.unshift(localObj);
-      localStorage.setItem('aobcn_orders_cache', JSON.stringify(localOrders));
-      window.dispatchEvent(new Event('orders_updated'));
-    } catch (e) {
-      console.warn('[Supabase] localStorage cache error:', e);
-    }
-
-    // 2. Đẩy lên Supabase
+    // 1. Đẩy trực tiếp lên Supabase
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/orders`, {
         method: 'POST',
@@ -125,7 +120,8 @@ export const supabaseApi = {
       } else {
         const result = await res.json();
         console.log('[Supabase] createOrder SUCCESS:', result);
-        return result;
+        window.dispatchEvent(new Event('orders_updated'));
+        return Array.isArray(result) && result.length > 0 ? result[0] : result;
       }
     } catch (err) {
       console.error('[Supabase] createOrder network error:', err);
@@ -134,43 +130,14 @@ export const supabaseApi = {
     return localObj;
   },
 
-  // Lấy TẤT CẢ đơn hàng từ Supabase (Admin + User đều dùng)
+  // Lấy TẤT CẢ đơn hàng từ Supabase (Admin Dashboard only)
   async getOrders() {
-    // Lấy cache local trước
-    let localOrders = [];
-    try {
-      localOrders = JSON.parse(localStorage.getItem('aobcn_orders_cache') || '[]');
-    } catch (e) {}
-
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/orders?select=*&order=created_at.desc`, { headers });
       if (res.ok) {
         const remoteOrders = await res.json();
         if (Array.isArray(remoteOrders)) {
-          // Merge: ưu tiên trạng thái CANCELLED từ local (tránh mất khi PATCH chưa kịp sync)
-          const remoteMap = new Map(remoteOrders.map(o => [String(o.order_code), o]));
-
-          // Các đơn chỉ tồn tại trong local (chưa lên Supabase)
-          const localOnlyOrders = localOrders.filter(o =>
-            !remoteMap.has(String(o.order_code))
-          );
-
-          // Merge: nếu local đã CANCELLED thì giữ CANCELLED dù Supabase có khác
-          const merged = remoteOrders.map(o => {
-            const localMatch = localOrders.find(l => String(l.order_code) === String(o.order_code));
-            if (localMatch?.status === 'CANCELLED' && o.status !== 'CANCELLED') {
-              return { ...o, status: 'CANCELLED' };
-            }
-            return o;
-          });
-
-          const finalList = [...merged, ...localOnlyOrders].sort(
-            (a, b) => new Date(b.created_at) - new Date(a.created_at)
-          );
-
-          // Cập nhật cache
-          try { localStorage.setItem('aobcn_orders_cache', JSON.stringify(finalList)); } catch (e) {}
-          return finalList;
+          return remoteOrders;
         }
       } else {
         const errText = await res.text();
@@ -179,25 +146,14 @@ export const supabaseApi = {
     } catch (err) {
       console.warn('[Supabase] getOrders network error:', err);
     }
-
-    // Fallback: dùng localStorage cache
-    return localOrders;
+    return [];
   },
 
-  // Lấy đơn hàng của người dùng cụ thể (User page)
+  // Lấy đơn hàng CHỈ của người dùng hiện tại (User page bảo mật)
   async getUserOrders(zaloId) {
     if (!zaloId) return [];
-
     const targetZaloId = String(zaloId);
 
-    // 1. Lấy cache local tương ứng với user
-    let localUserOrders = [];
-    try {
-      const allLocal = JSON.parse(localStorage.getItem('aobcn_orders_cache') || '[]');
-      localUserOrders = allLocal.filter(o => String(o.zalo_id) === targetZaloId);
-    } catch (e) {}
-
-    // 2. Fetch từ Supabase với bộ lọc zalo_id
     try {
       const res = await fetch(
         `${SUPABASE_URL}/rest/v1/orders?zalo_id=eq.${targetZaloId}&select=*&order=created_at.desc`,
@@ -206,54 +162,25 @@ export const supabaseApi = {
       if (res.ok) {
         const remoteOrders = await res.json();
         if (Array.isArray(remoteOrders)) {
-          // Merge local cache trạng thái CANCELLED
-          const remoteMap = new Map(remoteOrders.map(o => [String(o.order_code), o]));
-          const localOnly = localUserOrders.filter(o => !remoteMap.has(String(o.order_code)));
-
-          const merged = remoteOrders.map(o => {
-            const localMatch = localUserOrders.find(l => String(l.order_code) === String(o.order_code));
-            if (localMatch?.status === 'CANCELLED' && o.status !== 'CANCELLED') {
-              return { ...o, status: 'CANCELLED' };
-            }
-            return o;
-          });
-
-          return [...merged, ...localOnly].sort(
-            (a, b) => new Date(b.created_at) - new Date(a.created_at)
-          );
+          return remoteOrders;
         }
       }
     } catch (err) {
       console.warn('[Supabase] getUserOrders network error:', err);
     }
 
-    return localUserOrders;
+    return [];
   },
 
-  // Hủy đơn hàng
+  // Hủy đơn hàng (cập nhật trạng thái trực tiếp trên Supabase)
   async cancelOrder(orderCode, orderId) {
-    // Cập nhật cache local ngay
     try {
-      let localOrders = JSON.parse(localStorage.getItem('aobcn_orders_cache') || '[]');
-      localOrders = localOrders.map(o => {
-        const matchCode = orderCode && (o.order_code === orderCode || String(o.order_code) === String(orderCode));
-        const matchId = orderId && (o.id === orderId || String(o.id) === String(orderId));
-        if (matchCode || matchId) return { ...o, status: 'CANCELLED' };
-        return o;
-      });
-      localStorage.setItem('aobcn_orders_cache', JSON.stringify(localOrders));
-      window.dispatchEvent(new Event('orders_updated'));
-    } catch (e) {
-      console.warn('[Supabase] cancelOrder local cache error:', e);
-    }
-
-    // Cập nhật trên Supabase - chỉ dùng order_code vì id Supabase khác với id local
-    try {
-      if (!orderCode) {
-        console.warn('[Supabase] cancelOrder: không có order_code để match trên Supabase');
+      if (!orderCode && !orderId) {
+        console.warn('[Supabase] cancelOrder: thiếu mã đơn hàng');
         return false;
       }
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/orders?order_code=eq.${orderCode}`, {
+      const matchQuery = orderCode ? `order_code=eq.${orderCode}` : `id=eq.${orderId}`;
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/orders?${matchQuery}`, {
         method: 'PATCH',
         headers,
         body: JSON.stringify({ status: 'CANCELLED' })
@@ -261,6 +188,8 @@ export const supabaseApi = {
       if (!res.ok) {
         const errText = await res.text();
         console.error('[Supabase] cancelOrder error:', res.status, errText);
+      } else {
+        window.dispatchEvent(new Event('orders_updated'));
       }
       return res.ok;
     } catch (err) {
@@ -271,17 +200,6 @@ export const supabaseApi = {
 
   // Xóa hẳn một đơn hàng (Admin only)
   async deleteOrder(orderCode, orderId) {
-    // Xóa khỏi localStorage cache
-    try {
-      let localOrders = JSON.parse(localStorage.getItem('aobcn_orders_cache') || '[]');
-      localOrders = localOrders.filter(o =>
-        !(orderCode && String(o.order_code) === String(orderCode)) &&
-        !(orderId && (o.id === orderId || String(o.id) === String(orderId)))
-      );
-      localStorage.setItem('aobcn_orders_cache', JSON.stringify(localOrders));
-    } catch (e) {}
-
-    // Xóa trên Supabase
     try {
       const matchQuery = orderCode
         ? `order_code=eq.${orderCode}`
