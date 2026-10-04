@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import "./User.css";
-import { LogOut, Filter, Search, ShoppingBag, Check, Shield, Layers, ChevronRight, ChevronLeft, X, Sparkles, Phone, Mail, MapPin, Heart, ExternalLink, Sun, Moon, ClipboardList, Clock } from 'lucide-react';
+import { LogOut, Filter, Search, ShoppingBag, Check, Shield, Layers, ChevronRight, ChevronLeft, X, Sparkles, Phone, Mail, MapPin, Heart, ExternalLink, Sun, Moon, ClipboardList, Clock, CreditCard, Banknote, CheckCircle2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import bcn from '../src/assets/bcn.png';
 import { getStoredProducts, STORAGE_KEY_PRODUCTS, saveStoredProducts } from '../admin/Admin';
@@ -51,6 +51,7 @@ function User() {
     // Quản lý xem lịch sử đơn hàng của người dùng
     const [userOrders, setUserOrders] = useState([]);
     const [showOrdersModal, setShowOrdersModal] = useState(false);
+    const [orderTab, setOrderTab] = useState('pending'); // 'pending' | 'paid' | 'cancelled'
 
     // Tải danh sách đơn hàng riêng của người dùng từ Supabase
     const fetchUserOrders = async () => {
@@ -77,7 +78,7 @@ function User() {
                 // Cập nhật UI ngay lập tức (không chờ Supabase)
                 setUserOrders(prev => prev.map(o =>
                     (o.order_code === ord.order_code || o.id === ord.id)
-                        ? { ...o, status: 'CANCELLED' }
+                        ? { ...o, status: 'CANCELLED', payment_status: 'CANCELLED' }
                         : o
                 ));
                 showToast(`Đơn hàng #${code} đã được hủy thành công!`, 'success', 'Đã hủy đơn');
@@ -90,9 +91,14 @@ function User() {
 
     useEffect(() => {
         fetchUserOrders();
+        // Auto-sync đơn hàng mỗi 7s — bắt thêm payment_status, đặt hàng mới từ Admin
+        const ordersInterval = setInterval(fetchUserOrders, 7000);
         const handleOrdersUpdated = () => fetchUserOrders();
         window.addEventListener('orders_updated', handleOrdersUpdated);
-        return () => window.removeEventListener('orders_updated', handleOrdersUpdated);
+        return () => {
+            clearInterval(ordersInterval);
+            window.removeEventListener('orders_updated', handleOrdersUpdated);
+        };
     }, []);
 
     // Tải sản phẩm từ Supabase khi mở trang (và định kỳ đồng bộ)
@@ -180,6 +186,35 @@ function User() {
         initUser();
     }, []);
 
+    // Polling role mỗi 12s để bắt thay đổi quyền từ Admin
+    useEffect(() => {
+        const pollRole = async () => {
+            try {
+                const savedUser = localStorage.getItem('zalo_user');
+                if (!savedUser) return;
+                const userData = JSON.parse(savedUser);
+                const zaloId = userData.id || userData.zalo_id;
+                if (!zaloId) return;
+                const latestRole = await supabaseApi.getUserRole(zaloId);
+                const prevRole = localStorage.getItem('zalo_user_role') || 'user';
+                if (latestRole !== prevRole) {
+                    // Cập nhật localStorage và state
+                    localStorage.setItem('zalo_user_role', latestRole);
+                    setUserRole(latestRole);
+                    if (latestRole === 'user' && prevRole === 'admin') {
+                        // Bị hạ từ admin → user: reload để trang User re-render đúng
+                        showToast('Quyền Admin của bạn vừa bị thu hồi. Đang tải lại trang...', 'error', 'Quyền thay đổi');
+                        setTimeout(() => window.location.reload(), 2000);
+                    } else if (latestRole === 'admin' && prevRole === 'user') {
+                        showToast('Bạn vừa được cấp quyền Admin!', 'success', 'Quyền hạn mới');
+                    }
+                }
+            } catch (_) { /* bỏ qua lỗi mạng */ }
+        };
+        const interval = setInterval(pollRole, 5000);
+        return () => clearInterval(interval);
+    }, []);
+
     // Lắng nghe cập nhật sản phẩm từ trang Admin (cùng tab hoặc qua storage event)
     useEffect(() => {
         const handleSync = () => {
@@ -196,13 +231,14 @@ function User() {
         };
     }, []);
 
-    // Set sản phẩm được chọn mặc định khi products thay đổi
+    // Khi danh sách products thay đổi, reset selectedProduct nếu nó không còn tồn tại
+    // KHÔNG tự chọn sản phẩm đầu tiên — user phải tự chọn
     useEffect(() => {
-        if (products.length > 0 && (!selectedProduct || !products.find(p => p.id === selectedProduct.id))) {
-            setSelectedProduct(products[0]);
+        if (selectedProduct && products.length > 0 && !products.find(p => p.id === selectedProduct.id)) {
+            setSelectedProduct(null);
             setActiveImageIndex(0);
         }
-    }, [products, selectedProduct]);
+    }, [products]);
 
     // Khi đổi sản phẩm, reset lại size / gender phù hợp và active image
     useEffect(() => {
@@ -264,7 +300,7 @@ function User() {
             document.body.appendChild(iframe);
             // Chờ 1.5s để Zalo xóa cookie, rồi về trang login
             setTimeout(() => {
-                try { document.body.removeChild(iframe); } catch (_) {}
+                try { document.body.removeChild(iframe); } catch (_) { }
                 window.location.href = "/";
             }, 1500);
         } catch {
@@ -453,7 +489,12 @@ function User() {
         <div className={`user-page ${isLightMode ? 'user-light-mode' : ''}`}>
             {/* Header đồng bộ chuẩn BCN */}
             <header className="user-header">
-                <div className="user-logo">
+                <div
+                    className="user-logo"
+                    onClick={() => { setSelectedProduct(null); setActiveImageIndex(0); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                    style={{ cursor: 'pointer' }}
+                    title="Về trang chủ"
+                >
                     <img src={bcn} alt="Logo BCN" className="logo-img" />
                     <div className="brand-text">
                         <span className="brand-title">BAN CÔNG NGHỆ</span>
@@ -683,7 +724,7 @@ function User() {
                 </div>
 
                 {/* CỘT PHẢI: CHI TIẾT SẢN PHẨM & ĐẶT MUA */}
-                {selectedProduct && (
+                {selectedProduct ? (
                     <aside className="product-detail-panel">
                         <div className="detail-sticky-wrap">
                             {/* KHU VỰC ẢNH CHÍNH & CAROUSEL NHIỀU ẢNH */}
@@ -829,6 +870,35 @@ function User() {
                             </div>
                         </div>
                     </aside>
+                ) : (
+                    <aside className="product-detail-panel">
+                        <div className="detail-sticky-wrap" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '420px', gap: '18px', textAlign: 'center', padding: '40px 24px' }}>
+                            <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', border: '2px dashed rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <ShoppingBag size={34} style={{ color: 'rgba(255,255,255,0.25)' }} />
+                            </div>
+                            <div>
+                                <p style={{ fontSize: '15px', fontWeight: 600, color: '#e2e8f0', marginBottom: '8px' }}>
+                                    Chọn sản phẩm để xem chi tiết
+                                </p>
+                                <p style={{ fontSize: '13px', color: '#64748b', lineHeight: 1.6 }}>
+                                    Nhấn vào một sản phẩm bên trái để xem thông tin chi tiết, chọn size và đặt mua.
+                                </p>
+                            </div>
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                                {products.slice(0, 3).map(p => (
+                                    <button
+                                        key={p.id}
+                                        onClick={() => setSelectedProduct(p)}
+                                        style={{ padding: '6px 14px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)', color: '#94a3b8', fontSize: '12px', cursor: 'pointer', transition: 'all 0.2s' }}
+                                        onMouseEnter={e => { e.target.style.borderColor = 'rgba(124,58,237,0.5)'; e.target.style.color = '#c4b5fd'; }}
+                                        onMouseLeave={e => { e.target.style.borderColor = 'rgba(255,255,255,0.12)'; e.target.style.color = '#94a3b8'; }}
+                                    >
+                                        {p.name}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </aside>
                 )}
             </main>
 
@@ -890,105 +960,153 @@ function User() {
                 </div>
             </footer>
 
-            {/* MODAL LỊCH SỬ ĐƠN HÀNG ĐÃ ĐẶT */}
-            {showOrdersModal && (
-                <div className="orders-modal-overlay" onClick={() => setShowOrdersModal(false)}>
-                    <div className="orders-modal-container" onClick={(e) => e.stopPropagation()}>
-                        <div className="orders-modal-header">
-                            <div className="modal-title-wrap">
-                                <ClipboardList size={22} className="modal-icon" />
-                                <div>
-                                    <h3>Lịch Sử Đơn Hàng Đã Đặt</h3>
-                                    <p>Xem chi tiết từng sản phẩm, giá cả và tổng thanh toán</p>
+            {/* MODAL LỊCH SỬ ĐƠN HÀNG - 3 TABS */}
+            {showOrdersModal && (() => {
+                const pendingOrders   = userOrders.filter(o => o.status !== 'CANCELLED' && o.payment_status !== 'PAID');
+                const paidOrders      = userOrders.filter(o => o.payment_status === 'PAID');
+                const cancelledOrders = userOrders.filter(o => o.status === 'CANCELLED');
+                const pendingTotal    = pendingOrders.reduce((s, o) => s + Number(o.total_price || (o.price * (o.quantity || 1)) || 0), 0);
+
+                const tabs = [
+                    { key: 'pending',   label: 'Chờ thanh toán', count: pendingOrders.length,   color: '#fbbf24', bg: 'rgba(251,191,36,0.12)' },
+                    { key: 'paid',      label: 'Đã thanh toán',  count: paidOrders.length,      color: '#34d399', bg: 'rgba(52,211,153,0.12)'  },
+                    { key: 'cancelled', label: 'Đã hủy',         count: cancelledOrders.length, color: '#f87171', bg: 'rgba(239,68,68,0.12)'   },
+                ];
+
+                const activeOrders = orderTab === 'pending' ? pendingOrders : orderTab === 'paid' ? paidOrders : cancelledOrders;
+
+                const OrderCard = ({ ord }) => (
+                    <div className="order-history-card" key={ord.id || ord.order_code}>
+                        <div className="order-card-header">
+                            <div className="order-code-badge">Mã đơn: <strong>#{ord.order_code || ord.id}</strong></div>
+                            <div className="order-time"><Clock size={13} /><span>{ord.created_at ? new Date(ord.created_at).toLocaleString('vi-VN') : 'Vừa đặt'}</span></div>
+                        </div>
+                        <div className="order-card-content">
+                            <div className="order-product-info">
+                                <h4 className="order-item-title">{ord.product_name}</h4>
+                                <div className="order-item-variants">
+                                    <span className="variant-pill">Phân loại: <strong>{ord.gender === 'Female' ? 'Nữ' : 'Nam'}</strong></span>
+                                    <span className="variant-pill">Size: <strong>{ord.size}</strong></span>
+                                    <span className="variant-pill">Số lượng: <strong>x{ord.quantity}</strong></span>
                                 </div>
                             </div>
-                            <button className="btn-close-modal" onClick={() => setShowOrdersModal(false)}>
-                                <X size={20} />
-                            </button>
+                            <div className="order-pricing-breakdown">
+                                <div className="price-item-row"><span className="price-label">Đơn giá:</span><span className="price-val">{Number(ord.price || 0).toLocaleString('vi-VN')} đ</span></div>
+                                <div className="price-item-row"><span className="price-label">Số lượng:</span><span className="price-val">x {ord.quantity || 1}</span></div>
+                                <div className="price-item-row total-row"><span className="price-label">Tổng:</span><span className="price-val total-highlight">{Number(ord.total_price || (ord.price * (ord.quantity || 1)) || 0).toLocaleString('vi-VN')} đ</span></div>
+                            </div>
                         </div>
+                        {/* Chỉ tab pending mới có nút Hủy đơn */}
+                        {orderTab === 'pending' && (
+                            <div className="order-card-footer">
+                                <span className="buyer-name-tag">Người đặt: {ord.name || user?.name || 'Khách hàng BCN'}</span>
+                                <button type="button" className="btn-cancel-order" onClick={() => handleCancelOrder(ord)}>
+                                    <X size={13} /> Hủy đơn
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                );
 
-                        <div className="orders-modal-body">
-                            {userOrders.length === 0 ? (
-                                <div className="orders-empty-state">
-                                    <ShoppingBag size={48} className="empty-icon" />
-                                    <h4>Bạn chưa có đơn hàng nào</h4>
-                                    <p>Hãy chọn sản phẩm bạn yêu thích và bấm "Đặt Hàng Ngay" để lên đơn nhé!</p>
+                return (
+                    <div className="orders-modal-overlay" onClick={() => setShowOrdersModal(false)}>
+                        <div className="orders-modal-container" onClick={e => e.stopPropagation()} style={{ maxWidth: 640 }}>
+
+                            {/* HEADER */}
+                            <div className="orders-modal-header">
+                                <div className="modal-title-wrap">
+                                    <ClipboardList size={22} className="modal-icon" />
+                                    <div>
+                                        <h3>Đơn Hàng Của Tôi</h3>
+                                        <p>{userOrders.length} đơn · Chờ TT: <strong style={{ color: '#fbbf24' }}>{pendingTotal.toLocaleString('vi-VN')} đ</strong></p>
+                                    </div>
                                 </div>
-                            ) : (
-                                <div className="orders-list">
-                                    {userOrders.map((ord) => (
-                                        <div key={ord.id || ord.order_code} className="order-history-card">
-                                            <div className="order-card-header">
-                                                <div className="order-code-badge">
-                                                    Mã đơn: <strong>#{ord.order_code || ord.id}</strong>
-                                                </div>
-                                                <div className="order-time">
-                                                    <Clock size={13} />
-                                                    <span>{ord.created_at ? new Date(ord.created_at).toLocaleString('vi-VN') : 'Vừa đặt'}</span>
-                                                </div>
-                                            </div>
-
-                                            <div className="order-card-content">
-                                                <div className="order-product-info">
-                                                    <h4 className="order-item-title">{ord.product_name}</h4>
-                                                    <div className="order-item-variants">
-                                                        <span className="variant-pill">Phân loại: <strong>{ord.gender === 'Female' ? 'Nữ' : 'Nam'}</strong></span>
-                                                        <span className="variant-pill">Size: <strong>{ord.size}</strong></span>
-                                                        <span className="variant-pill">Số lượng: <strong>x{ord.quantity}</strong></span>
-                                                    </div>
-                                                </div>
-
-                                                <div className="order-pricing-breakdown">
-                                                    <div className="price-item-row">
-                                                        <span className="price-label">Đơn giá từng món:</span>
-                                                        <span className="price-val">{Number(ord.price || 0).toLocaleString('vi-VN')} đ</span>
-                                                    </div>
-                                                    <div className="price-item-row">
-                                                        <span className="price-label">Số lượng đặt:</span>
-                                                        <span className="price-val">x {ord.quantity || 1}</span>
-                                                    </div>
-                                                    <div className="price-item-row total-row">
-                                                        <span className="price-label">Tổng thanh toán:</span>
-                                                        <span className="price-val total-highlight">
-                                                            {Number(ord.total_price || (ord.price * (ord.quantity || 1)) || 0).toLocaleString('vi-VN')} đ
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div className="order-card-footer">
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    {ord.status === 'CANCELLED' ? (
-                                                        <span className="order-status-tag status-cancelled">
-                                                            <X size={13} /> Đã hủy
-                                                        </span>
-                                                    ) : (
-                                                        <span className="order-status-tag status-success">
-                                                            <Check size={13} /> Đã ghi nhận đơn hàng
-                                                        </span>
-                                                    )}
-                                                    <span className="buyer-name-tag">Người đặt: {ord.name || user?.name || 'Khách hàng BCN'}</span>
-                                                </div>
-
-                                                {ord.status !== 'CANCELLED' && (
-                                                    <button
-                                                        type="button"
-                                                        className="btn-cancel-order"
-                                                        onClick={() => handleCancelOrder(ord)}
-                                                        title="Hủy đơn hàng này"
-                                                    >
-                                                        <X size={13} /> Hủy đơn hàng
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    {pendingOrders.length > 0 && (
+                                        <button
+                                            type="button"
+                                            onClick={async () => {
+                                                const results = await Promise.all(
+                                                    pendingOrders.map(o => supabaseApi.updatePaymentStatus(o.order_code, o.id, 'PAID'))
+                                                );
+                                                if (results.every(r => r)) {
+                                                    setUserOrders(prev => prev.map(o =>
+                                                        pendingOrders.find(p => p.order_code === o.order_code || p.id === o.id)
+                                                            ? { ...o, payment_status: 'PAID' }
+                                                            : o
+                                                    ));
+                                                    setOrderTab('paid');
+                                                    showToast(`Đã thanh toán ${pendingOrders.length} đơn thành công!`, 'success', 'Thanh toán');
+                                                } else {
+                                                    showToast('Có lỗi khi thanh toán. Vui lòng thử lại!', 'error', 'Lỗi');
+                                                }
+                                            }}
+                                            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 20, background: 'linear-gradient(135deg,rgba(251,191,36,0.2),rgba(245,158,11,0.12))', border: '1px solid rgba(251,191,36,0.45)', color: '#fbbf24', fontSize: '13px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                                        >
+                                            <CreditCard size={14} /> Thanh toán ({pendingOrders.length})
+                                        </button>
+                                    )}
+                                    <button className="btn-close-modal" onClick={() => setShowOrdersModal(false)}><X size={20} /></button>
                                 </div>
-                            )}
+                            </div>
+
+                            {/* TAB BAR */}
+                            <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.08)', background: 'rgba(0,0,0,0.2)' }}>
+                                {tabs.map(tab => (
+                                    <button
+                                        key={tab.key}
+                                        type="button"
+                                        onClick={() => setOrderTab(tab.key)}
+                                        style={{
+                                            flex: 1,
+                                            padding: '12px 8px',
+                                            border: 'none',
+                                            borderBottom: orderTab === tab.key ? `2px solid ${tab.color}` : '2px solid transparent',
+                                            background: orderTab === tab.key ? tab.bg : 'transparent',
+                                            color: orderTab === tab.key ? tab.color : '#64748b',
+                                            fontSize: '13px',
+                                            fontWeight: orderTab === tab.key ? 700 : 500,
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: 6,
+                                        }}
+                                    >
+                                        {tab.label}
+                                        <span style={{
+                                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                            minWidth: 20, height: 20, borderRadius: 10, fontSize: '11px', fontWeight: 700,
+                                            background: orderTab === tab.key ? tab.color : 'rgba(255,255,255,0.08)',
+                                            color: orderTab === tab.key ? '#0f172a' : '#64748b',
+                                            padding: '0 5px',
+                                        }}>
+                                            {tab.count}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* NỘI DUNG TAB */}
+                            <div className="orders-modal-body">
+                                {activeOrders.length === 0 ? (
+                                    <div className="orders-empty-state">
+                                        <ShoppingBag size={44} className="empty-icon" />
+                                        <h4>Không có đơn hàng nào</h4>
+                                        <p>{orderTab === 'pending' ? 'Bạn không có đơn nào đang chờ thanh toán.' : orderTab === 'paid' ? 'Chưa có đơn hàng nào được thanh toán.' : 'Bạn chưa hủy đơn hàng nào.'}</p>
+                                    </div>
+                                ) : (
+                                    <div className="orders-list">
+                                        {activeOrders.map(ord => <OrderCard key={ord.id || ord.order_code} ord={ord} />)}
+                                    </div>
+                                )}
+                            </div>
+
                         </div>
                     </div>
-                </div>
-            )}
+                );
+            })()}
 
             {/* THÔNG BÁO TOAST & MODAL XÁC NHẬN */}
             <div className="toast-container">

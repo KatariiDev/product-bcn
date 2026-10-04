@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './Admin.css';
-import { Plus, Trash2, Edit3, Image as ImageIcon, Save, ArrowLeft, RefreshCw, X, Upload, Star, Sun, Moon, ShoppingBag, CheckCircle, Clock, Users, Shield, UserCheck, Search } from 'lucide-react';
+import { Plus, Trash2, Edit3, Image as ImageIcon, Save, ArrowLeft, RefreshCw, X, Upload, Star, Sun, Moon, ShoppingBag, CheckCircle, Clock, Users, Shield, UserCheck, Search, KeyRound, Eye, EyeOff, UserPlus, Lock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import bcn from '../src/assets/bcn.png';
 import { supabaseApi } from '../src/supabaseClient';
@@ -134,8 +134,14 @@ function Admin() {
   const [products, setProducts] = useState(() => getStoredProducts());
   const [orders, setOrders] = useState([]);
   const [users, setUsers] = useState([]);
+  const [accounts, setAccounts] = useState([]);
   const [userSearchQuery, setUserSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState('products'); // 'products' | 'orders' | 'users'
+  const [activeTab, setActiveTab] = useState('products'); // 'products' | 'orders' | 'users' | 'accounts'
+
+  // State form tạo tài khoản nội bộ
+  const [accountForm, setAccountForm] = useState({ username: '', password: '', displayName: '', role: 'user' });
+  const [accountFormLoading, setAccountFormLoading] = useState(false);
+  const [showAccountPassword, setShowAccountPassword] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [isAuthorized, setIsAuthorized] = useState(null);
@@ -202,6 +208,27 @@ function Admin() {
     verifyAdmin();
   }, []);
 
+  // Polling role mỗi 12s — nếu bị hạ quyền thì tự động redirect về /user
+  useEffect(() => {
+    const pollRole = async () => {
+      try {
+        const saved = localStorage.getItem('zalo_user');
+        if (!saved) return;
+        const u = JSON.parse(saved);
+        const zaloId = u.id || u.zalo_id;
+        if (!zaloId) return;
+        const role = await supabaseApi.getUserRole(zaloId);
+        if (role !== 'admin') {
+          sessionStorage.setItem('auth_error', 'Quyền Admin của bạn vừa bị thay đổi. Đã chuyển về trang User!');
+          window.location.href = '/user';
+        }
+      } catch (_) { /* bỏ qua lỗi mạng */ }
+    };
+    // Chỉ bắt đầu poll sau khi đã xác thực thành công
+    const interval = setInterval(pollRole, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Tải sản phẩm & đơn hàng từ Supabase
   const fetchRemoteData = async () => {
     setIsSyncing(true);
@@ -244,6 +271,9 @@ function Admin() {
       if (remoteOrders && Array.isArray(remoteOrders)) {
         setOrders(remoteOrders);
       }
+
+      // 3. Lấy danh sách tài khoản
+      await fetchUsers();
     } catch (err) {
       console.warn("Lỗi sync Supabase:", err);
     } finally {
@@ -287,6 +317,53 @@ function Admin() {
   const fetchUsers = async () => {
     const data = await supabaseApi.getUsers();
     if (Array.isArray(data)) setUsers(data);
+  };
+
+  const fetchAccounts = async () => {
+    const data = await supabaseApi.getAccounts();
+    if (Array.isArray(data)) setAccounts(data);
+  };
+
+  const handleCreateAccount = async (e) => {
+    e.preventDefault();
+    const { username, password, displayName, role } = accountForm;
+    if (!username.trim() || !password) {
+      showToast('Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu!', 'error', 'Thiếu thông tin');
+      return;
+    }
+    if (password.length < 6) {
+      showToast('Mật khẩu phải có ít nhất 6 ký tự!', 'error', 'Mật khẩu yếu');
+      return;
+    }
+    setAccountFormLoading(true);
+    try {
+      const result = await supabaseApi.createAccount(username, password, displayName, role);
+      if (result.success) {
+        showToast(`Đã tạo tài khoản "${username.trim().toLowerCase()}" thành công!`, 'success', 'Tạo thành công');
+        setAccountForm({ username: '', password: '', displayName: '', role: 'user' });
+        await fetchAccounts();
+      } else {
+        showToast(result.error || 'Tạo tài khoản thất bại!', 'error', 'Lỗi');
+      }
+    } finally {
+      setAccountFormLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = (acc) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Xóa Tài Khoản Nội Bộ',
+      message: `Xóa tài khoản "${acc.username}" (${acc.display_name})? Thao tác này không thể hoàn tác.`,
+      confirmText: 'Xóa tài khoản',
+      cancelText: 'Giữ lại',
+      danger: true,
+      onConfirm: async () => {
+        await supabaseApi.deleteAccount(acc.id);
+        setAccounts(prev => prev.filter(a => a.id !== acc.id));
+        showToast(`Đã xóa tài khoản "${acc.username}"!`, 'success', 'Đã xóa');
+      }
+    });
   };
 
   const handleUpdateRole = async (u, newRole) => {
@@ -1030,7 +1107,23 @@ function Admin() {
                 }}
               >
                 <Users size={15} />
-                Tài Khoản ({users.length})
+                Zalo Users ({users.length})
+              </button>
+              <button
+                type="button"
+                className={`btn-secondary ${activeTab === 'accounts' ? 'tab-active' : ''}`}
+                onClick={() => { setActiveTab('accounts'); fetchAccounts(); }}
+                style={{
+                  background: activeTab === 'accounts' ? '#059669' : undefined,
+                  color: activeTab === 'accounts' ? '#fff' : undefined,
+                  borderColor: activeTab === 'accounts' ? '#059669' : undefined,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <KeyRound size={15} />
+                Tài Khoản ({accounts.length})
               </button>
             </div>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -1145,7 +1238,7 @@ function Admin() {
                     <th>Phân Loại</th>
                     <th>SL</th>
                     <th>Tổng Tiền</th>
-                    <th>Trạng Thái</th>
+                    <th>Thanh Toán</th>
                     <th>Thời Gian</th>
                     <th>Xóa</th>
                   </tr>
@@ -1188,13 +1281,20 @@ function Admin() {
                             {Number(ord.total_price || (ord.price * ord.quantity) || 0).toLocaleString('vi-VN')} đ
                           </div>
                         </td>
-                        <td data-label="Trạng thái">
-                          <span
-                            className={`status-pill ${ord.status === 'CANCELLED' ? 'out-stock' : 'in-stock'}`}
-                            style={{ fontSize: '11px', padding: '3px 8px' }}
-                          >
-                            {ord.status === 'CANCELLED' ? 'Đã hủy' : 'Chờ XL'}
-                          </span>
+                        <td data-label="Thanh toán">
+                          {ord.status === 'CANCELLED' || ord.payment_status === 'CANCELLED' ? (
+                            <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 700, background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', color: '#f87171' }}>
+                              CANCELLED
+                            </span>
+                          ) : ord.payment_status === 'PAID' ? (
+                            <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 700, background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.4)', color: '#34d399' }}>
+                              PAID
+                            </span>
+                          ) : (
+                            <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 700, background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.35)', color: '#fbbf24' }}>
+                              PENDING
+                            </span>
+                          )}
                         </td>
                         <td data-label="Thời gian" style={{ fontSize: '12px', color: '#94a3b8' }}>
                           {ord.created_at ? new Date(ord.created_at).toLocaleString('vi-VN') : 'Vừa xong'}
@@ -1316,63 +1416,230 @@ function Admin() {
                       </tr>
                     ) : (
                       filteredUsers.map((u) => (
-                      <tr key={u.zalo_id}>
-                        <td data-label="Người dùng">
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            {u.avatar ? (
-                              <img
-                                src={u.avatar}
-                                alt={u.name}
-                                style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(124,58,237,0.4)', flexShrink: 0 }}
-                                onError={(e) => { e.target.style.display = 'none'; }}
-                              />
-                            ) : (
-                              <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(124,58,237,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', flexShrink: 0 }}>
-                                {u.name?.[0] || '?'}
+                        <tr key={u.zalo_id}>
+                          <td data-label="Người dùng">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <div style={{ position: 'relative', flexShrink: 0 }}>
+                                {u.avatar ? (
+                                  <img
+                                    src={u.avatar}
+                                    alt={u.name}
+                                    title={u.name}
+                                    referrerPolicy="no-referrer"
+                                    crossOrigin="anonymous"
+                                    style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(0,120,255,0.6)', display: 'block' }}
+                                    onError={(e) => {
+                                      const parent = e.target.parentNode;
+                                      e.target.remove();
+                                      const fallback = document.createElement('div');
+                                      fallback.textContent = (u.name?.[0] || '?').toUpperCase();
+                                      fallback.title = u.name || '';
+                                      fallback.style.cssText = 'width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,rgba(0,120,255,0.5),rgba(59,130,246,0.35));display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#e2e8f0;border:2px solid rgba(0,120,255,0.5);';
+                                      parent.appendChild(fallback);
+                                    }}
+                                  />
+                                ) : (
+                                  <div title={u.name} style={{ width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(135deg,rgba(0,120,255,0.5),rgba(59,130,246,0.35))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', fontWeight: 700, color: '#e2e8f0', border: '2px solid rgba(0,120,255,0.5)' }}>
+                                    {(u.name?.[0] || '?').toUpperCase()}
+                                  </div>
+                                )}
+                                {/* Badge Zalo */}
+                                <span style={{ position: 'absolute', bottom: -2, right: -2, background: '#0068ff', borderRadius: '50%', width: 14, height: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '7px', fontWeight: 800, color: '#fff', border: '1.5px solid #1e293b', letterSpacing: '-0.5px' }}>Z</span>
                               </div>
-                            )}
-                            <div style={{ minWidth: 0 }}>
-                              <div style={{ fontWeight: 600 }}>{u.name || 'Ẩn danh'}</div>
-                              <div style={{ fontSize: '11px', color: '#94a3b8' }}>
-                                Tham gia: {u.created_at ? new Date(u.created_at).toLocaleDateString('vi-VN') : 'N/A'}
+                              <div style={{ minWidth: 0 }}>
+                                <div style={{ fontWeight: 600 }}>{u.name || 'Ẩn danh'}</div>
+                                <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                                  Tham gia: {u.created_at ? new Date(u.created_at).toLocaleDateString('vi-VN') : 'N/A'}
+                                </div>
                               </div>
                             </div>
+                          </td>
+                          <td data-label="Zalo ID">
+                            <code style={{ fontSize: '11px', background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: '6px', color: '#94a3b8', wordBreak: 'break-all' }}>
+                              {u.zalo_id}
+                            </code>
+                          </td>
+                          <td data-label="Quyền hạn">
+                            <select
+                              value={u.role || 'user'}
+                              onChange={(e) => handleUpdateRole(u, e.target.value)}
+                              style={{
+                                background: u.role === 'admin' ? 'rgba(124,58,237,0.2)' : 'rgba(16,185,129,0.15)',
+                                border: `1px solid ${u.role === 'admin' ? 'rgba(124,58,237,0.5)' : 'rgba(16,185,129,0.4)'}`,
+                                color: u.role === 'admin' ? '#c4b5fd' : '#6ee7b7',
+                                borderRadius: '8px',
+                                padding: '4px 10px',
+                                fontSize: '12px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                outline: 'none',
+                                maxWidth: '120px',
+                                width: 'auto'
+                              }}
+                            >
+                              <option value="user">User</option>
+                              <option value="admin">Admin</option>
+                            </select>
+                          </td>
+                          <td data-label="Đăng nhập cuối" style={{ fontSize: '12px', color: '#94a3b8' }}>
+                            {u.last_login ? new Date(u.last_login).toLocaleString('vi-VN') : 'Chưa đăng nhập'}
+                          </td>
+                          <td data-label="Xóa">
+                            <button
+                              className="btn-icon delete"
+                              onClick={() => handleDeleteUser(u)}
+                              title="Xóa tài khoản này"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })()}
+
+          {/* ── TAB TẠO TÀI KHOẢN NỘI BỘ ───────────────────────────── */}
+          {activeTab === 'accounts' && (
+            <div className="product-table-wrapper">
+              {/* Banner mô tả */}
+              <div style={{ padding: '12px 16px', background: 'rgba(5,150,105,0.1)', borderRadius: '10px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#6ee7b7' }}>
+                <KeyRound size={15} />
+                Tạo tài khoản đăng nhập nội bộ. Người dùng dùng tài khoản này để đăng nhập tại trang Login.
+              </div>
+
+              {/* Form tạo tài khoản */}
+              <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(5,150,105,0.25)', borderRadius: '14px', padding: '24px', marginBottom: '28px' }}>
+                <h3 style={{ margin: '0 0 18px', fontSize: '15px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', color: '#6ee7b7' }}>
+                  <UserPlus size={17} /> Tạo Tài Khoản Mới
+                </h3>
+                <form onSubmit={handleCreateAccount}>
+                  <div className="form-row" style={{ gap: '14px', flexWrap: 'wrap' }}>
+                    <div className="form-group" style={{ flex: '1 1 200px', minWidth: '160px' }}>
+                      <label style={{ fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block', color: '#94a3b8' }}>Tên đăng nhập *</label>
+                      <input
+                        type="text"
+                        value={accountForm.username}
+                        onChange={e => setAccountForm(prev => ({ ...prev, username: e.target.value }))}
+                        placeholder="VD: admin01, bcnuser"
+                        autoComplete="off"
+                        required
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                    <div className="form-group" style={{ flex: '1 1 200px', minWidth: '160px', position: 'relative' }}>
+                      <label style={{ fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block', color: '#94a3b8' }}>Mật khẩu * (tối thiểu 6 ký tự)</label>
+                      <div style={{ position: 'relative' }}>
+                        <input
+                          type={showAccountPassword ? 'text' : 'password'}
+                          value={accountForm.password}
+                          onChange={e => setAccountForm(prev => ({ ...prev, password: e.target.value }))}
+                          placeholder="••••••••"
+                          autoComplete="new-password"
+                          required
+                          style={{ width: '100%', paddingRight: '40px' }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowAccountPassword(p => !p)}
+                          style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', padding: 0 }}
+                          title={showAccountPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                        >
+                          {showAccountPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="form-group" style={{ flex: '1 1 200px', minWidth: '160px' }}>
+                      <label style={{ fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block', color: '#94a3b8' }}>Tên hiển thị</label>
+                      <input
+                        type="text"
+                        value={accountForm.displayName}
+                        onChange={e => setAccountForm(prev => ({ ...prev, displayName: e.target.value }))}
+                        placeholder="VD: Nguyễn Văn A"
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                    <div className="form-group" style={{ flex: '0 1 140px', minWidth: '120px' }}>
+                      <label style={{ fontSize: '12px', fontWeight: 600, marginBottom: '6px', display: 'block', color: '#94a3b8' }}>Quyền hạn</label>
+                      <select
+                        value={accountForm.role}
+                        onChange={e => setAccountForm(prev => ({ ...prev, role: e.target.value }))}
+                        style={{ width: '100%', background: accountForm.role === 'admin' ? 'rgba(124,58,237,0.2)' : 'rgba(16,185,129,0.15)', border: `1px solid ${accountForm.role === 'admin' ? 'rgba(124,58,237,0.5)' : 'rgba(16,185,129,0.4)'}`, color: accountForm.role === 'admin' ? '#c4b5fd' : '#6ee7b7', borderRadius: '8px', padding: '8px 10px', fontSize: '13px', fontWeight: 700, outline: 'none' }}
+                      >
+                        <option value="user">User</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div style={{ marginTop: '16px' }}>
+                    <button
+                      type="submit"
+                      className="btn-primary"
+                      disabled={accountFormLoading}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: accountFormLoading ? '#374151' : '#059669', borderColor: '#059669', opacity: accountFormLoading ? 0.7 : 1 }}
+                    >
+                      {accountFormLoading ? <RefreshCw size={15} className="spinning" /> : <UserPlus size={15} />}
+                      {accountFormLoading ? 'Đang tạo...' : 'Tạo tài khoản'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* Danh sách tài khoản */}
+              <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#e2e8f0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Lock size={14} /> Danh Sách Tài Khoản Nội Bộ
+                </h3>
+                <span style={{ fontSize: '12px', color: '#94a3b8' }}>Tổng: {accounts.length} tài khoản</span>
+              </div>
+              <table className="product-table">
+                <thead>
+                  <tr>
+                    <th>Tên đăng nhập</th>
+                    <th>Tên hiển thị</th>
+                    <th>Quyền hạn</th>
+                    <th>Ngày tạo</th>
+                    <th>Đăng nhập cuối</th>
+                    <th>Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {accounts.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} style={{ textAlign: 'center', padding: '35px', color: '#94a3b8' }}>
+                        Chưa có tài khoản nào. Hãy tạo tài khoản đầu tiên!
+                      </td>
+                    </tr>
+                  ) : (
+                    accounts.map((acc) => (
+                      <tr key={acc.id}>
+                        <td data-label="Tên đăng nhập">
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(5,150,105,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', flexShrink: 0 }}>
+                              {acc.username?.[0]?.toUpperCase() || '?'}
+                            </div>
+                            <code style={{ fontSize: '12px', background: 'rgba(255,255,255,0.06)', padding: '2px 8px', borderRadius: '6px', color: '#6ee7b7', fontWeight: 700 }}>{acc.username}</code>
                           </div>
                         </td>
-                        <td data-label="Zalo ID">
-                          <code style={{ fontSize: '11px', background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: '6px', color: '#94a3b8', wordBreak: 'break-all' }}>
-                            {u.zalo_id}
-                          </code>
-                        </td>
+                        <td data-label="Tên hiển thị" style={{ fontSize: '13px' }}>{acc.display_name || acc.username}</td>
                         <td data-label="Quyền hạn">
-                          <select
-                            value={u.role || 'user'}
-                            onChange={(e) => handleUpdateRole(u, e.target.value)}
-                            style={{
-                              background: u.role === 'admin' ? 'rgba(124,58,237,0.2)' : 'rgba(16,185,129,0.15)',
-                              border: `1px solid ${u.role === 'admin' ? 'rgba(124,58,237,0.5)' : 'rgba(16,185,129,0.4)'}`,
-                              color: u.role === 'admin' ? '#c4b5fd' : '#6ee7b7',
-                              borderRadius: '8px',
-                              padding: '4px 10px',
-                              fontSize: '12px',
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                              outline: 'none',
-                              maxWidth: '120px',
-                              width: 'auto'
-                            }}
-                          >
-                            <option value="user">User</option>
-                            <option value="admin">Admin</option>
-                          </select>
+                          <span style={{ background: acc.role === 'admin' ? 'rgba(124,58,237,0.2)' : 'rgba(16,185,129,0.15)', border: `1px solid ${acc.role === 'admin' ? 'rgba(124,58,237,0.5)' : 'rgba(16,185,129,0.4)'}`, color: acc.role === 'admin' ? '#c4b5fd' : '#6ee7b7', borderRadius: '8px', padding: '3px 10px', fontSize: '11px', fontWeight: 700 }}>
+                            {acc.role === 'admin' ? 'Admin' : 'User'}
+                          </span>
+                        </td>
+                        <td data-label="Ngày tạo" style={{ fontSize: '12px', color: '#94a3b8' }}>
+                          {acc.created_at ? new Date(acc.created_at).toLocaleDateString('vi-VN') : 'N/A'}
                         </td>
                         <td data-label="Đăng nhập cuối" style={{ fontSize: '12px', color: '#94a3b8' }}>
-                          {u.last_login ? new Date(u.last_login).toLocaleString('vi-VN') : 'Chưa đăng nhập'}
+                          {acc.last_login ? new Date(acc.last_login).toLocaleString('vi-VN') : 'Chưa đăng nhập'}
                         </td>
                         <td data-label="Xóa">
                           <button
                             className="btn-icon delete"
-                            onClick={() => handleDeleteUser(u)}
+                            onClick={() => handleDeleteAccount(acc)}
                             title="Xóa tài khoản này"
                           >
                             <Trash2 size={15} />
@@ -1384,8 +1651,7 @@ function Admin() {
                 </tbody>
               </table>
             </div>
-          );
-        })()}
+          )}
         </div>
       </div>
 
