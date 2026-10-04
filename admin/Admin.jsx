@@ -131,6 +131,51 @@ export const saveStoredProducts = (products) => {
 const MAX_IMAGES = 10;
 
 function Admin() {
+  // Xuất danh sách đơn hàng ra file CSV (Excel mở được, hỗ trợ tiếng Việt)
+  const exportOrdersToXlsx = (orderList) => {
+    const today = new Date();
+    const dd = String(today.getDate()).padStart(2, '0');
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const yyyy = today.getFullYear();
+    const hh = String(today.getHours()).padStart(2, '0');
+    const mi = String(today.getMinutes()).padStart(2, '0');
+    const ss = String(today.getSeconds()).padStart(2, '0');
+    const fileName = `Don_hang_BCN_${dd}-${mm}-${yyyy}_${hh}-${mi}-${ss}.csv`;
+
+    const headers = ['Mã Đơn', 'Khách Hàng', 'Sản Phẩm', 'Phân Loại', 'SL', 'Tổng Tiền (đ)', 'Thanh Toán', 'Thời Gian'];
+    const rows = orderList.map(o => [
+      o.order_code || o.id || '',
+      o.name || '',
+      o.product_name || '',
+      `${o.gender === 'Female' ? 'Nữ' : 'Nam'} / Size ${o.size || ''}`,
+      o.quantity || 1,
+      Number(o.total_price || (o.price * (o.quantity || 1)) || 0),
+      o.status === 'CANCELLED' || o.payment_status === 'CANCELLED' ? 'CANCELLED' : o.payment_status === 'PAID' ? 'PAID' : 'PENDING',
+      o.created_at ? '\t' + new Date(o.created_at).toLocaleString('vi-VN') : 'Không rõ'
+    ]);
+
+    // Escape CSV cell (bọc nháy kép nếu có dấu phẩy/xuống dòng)
+    const escapeCell = (val) => {
+      const s = String(val);
+      return s.includes(',') || s.includes('"') || s.includes('\n')
+        ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(escapeCell).join(','))
+      .join('\r\n');
+
+    // BOM UTF-8 để Excel nhận diện đúng tiếng Việt
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+
   const [products, setProducts] = useState(() => getStoredProducts());
   const [orders, setOrders] = useState([]);
   const [users, setUsers] = useState([]);
@@ -1130,11 +1175,12 @@ function Admin() {
               <button
                 type="button"
                 className="btn-secondary"
-                onClick={fetchRemoteData}
-                title="Đồng bộ ngay với Supabase"
-                style={{ padding: '6px 12px', fontSize: '12px' }}
+                onClick={() => exportOrdersToXlsx(orders)}
+                title="Xuất danh sách đơn hàng ra file Excel"
+                style={{ padding: '6px 14px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '5px', background: 'rgba(16,185,129,0.12)', borderColor: 'rgba(16,185,129,0.4)', color: '#34d399' }}
               >
-                <RefreshCw size={13} className={isSyncing ? 'spinning' : ''} /> Đồng bộ
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Xuất XLSX
               </button>
               <span className="sync-badge">🟢 Supabase Realtime</span>
             </div>

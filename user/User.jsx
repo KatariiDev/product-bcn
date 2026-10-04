@@ -873,29 +873,16 @@ function User() {
                 ) : (
                     <aside className="product-detail-panel">
                         <div className="detail-sticky-wrap" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '420px', gap: '18px', textAlign: 'center', padding: '40px 24px' }}>
-                            <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', border: '2px dashed rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <ShoppingBag size={34} style={{ color: 'rgba(255,255,255,0.25)' }} />
+                            <div style={{ width: 80, height: 80, borderRadius: '50%', background: isLightMode ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', border: `2px dashed ${isLightMode ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.15)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <ShoppingBag size={34} style={{ color: isLightMode ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.25)' }} />
                             </div>
                             <div>
-                                <p style={{ fontSize: '15px', fontWeight: 600, color: '#e2e8f0', marginBottom: '8px' }}>
+                                <p style={{ fontSize: '15px', fontWeight: 600, color: isLightMode ? '#1e293b' : '#e2e8f0', marginBottom: '8px' }}>
                                     Chọn sản phẩm để xem chi tiết
                                 </p>
-                                <p style={{ fontSize: '13px', color: '#64748b', lineHeight: 1.6 }}>
+                                <p style={{ fontSize: '13px', color: isLightMode ? '#475569' : '#64748b', lineHeight: 1.6 }}>
                                     Nhấn vào một sản phẩm bên trái để xem thông tin chi tiết, chọn size và đặt mua.
                                 </p>
-                            </div>
-                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                                {products.slice(0, 3).map(p => (
-                                    <button
-                                        key={p.id}
-                                        onClick={() => setSelectedProduct(p)}
-                                        style={{ padding: '6px 14px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)', color: '#94a3b8', fontSize: '12px', cursor: 'pointer', transition: 'all 0.2s' }}
-                                        onMouseEnter={e => { e.target.style.borderColor = 'rgba(124,58,237,0.5)'; e.target.style.color = '#c4b5fd'; }}
-                                        onMouseLeave={e => { e.target.style.borderColor = 'rgba(255,255,255,0.12)'; e.target.style.color = '#94a3b8'; }}
-                                    >
-                                        {p.name}
-                                    </button>
-                                ))}
                             </div>
                         </div>
                     </aside>
@@ -1041,7 +1028,7 @@ function User() {
                                                     showToast('Có lỗi khi thanh toán. Vui lòng thử lại!', 'error', 'Lỗi');
                                                 }
                                             }}
-                                            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 20, background: 'linear-gradient(135deg,rgba(251,191,36,0.2),rgba(245,158,11,0.12))', border: '1px solid rgba(251,191,36,0.45)', color: '#fbbf24', fontSize: '13px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                                            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 20, background: isLightMode ? 'rgba(180,83,9,0.1)' : 'linear-gradient(135deg,rgba(251,191,36,0.2),rgba(245,158,11,0.12))', border: `1px solid ${isLightMode ? 'rgba(180,83,9,0.4)' : 'rgba(251,191,36,0.45)'}`, color: isLightMode ? '#b45309' : '#fbbf24', fontSize: '13px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
                                         >
                                             <CreditCard size={14} /> Thanh toán ({pendingOrders.length})
                                         </button>
@@ -1051,7 +1038,7 @@ function User() {
                             </div>
 
                             {/* TAB BAR */}
-                            <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.08)', background: 'rgba(0,0,0,0.2)' }}>
+                            <div style={{ display: 'flex', borderBottom: `1px solid ${isLightMode ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.08)'}`, background: isLightMode ? 'rgba(0,0,0,0.04)' : 'rgba(0,0,0,0.2)' }}>
                                 {tabs.map(tab => (
                                     <button
                                         key={tab.key}
@@ -1062,8 +1049,12 @@ function User() {
                                             padding: '12px 8px',
                                             border: 'none',
                                             borderBottom: orderTab === tab.key ? `2px solid ${tab.color}` : '2px solid transparent',
-                                            background: orderTab === tab.key ? tab.bg : 'transparent',
-                                            color: orderTab === tab.key ? tab.color : '#64748b',
+                                            background: orderTab === tab.key
+                                                ? isLightMode ? `${tab.color}22` : tab.bg
+                                                : 'transparent',
+                                            color: orderTab === tab.key
+                                                ? isLightMode ? tab.key === 'pending' ? '#b45309' : tab.key === 'paid' ? '#047857' : '#b91c1c' : tab.color
+                                                : isLightMode ? '#374151' : '#64748b',
                                             fontSize: '13px',
                                             fontWeight: orderTab === tab.key ? 700 : 500,
                                             cursor: 'pointer',
@@ -1078,8 +1069,10 @@ function User() {
                                         <span style={{
                                             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                                             minWidth: 20, height: 20, borderRadius: 10, fontSize: '11px', fontWeight: 700,
-                                            background: orderTab === tab.key ? tab.color : 'rgba(255,255,255,0.08)',
-                                            color: orderTab === tab.key ? '#0f172a' : '#64748b',
+                                            background: orderTab === tab.key
+                                                ? tab.color
+                                                : isLightMode ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.08)',
+                                            color: orderTab === tab.key ? '#fff' : isLightMode ? '#374151' : '#64748b',
                                             padding: '0 5px',
                                         }}>
                                             {tab.count}
