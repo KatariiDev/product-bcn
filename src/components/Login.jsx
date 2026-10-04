@@ -2,9 +2,9 @@ import './Login.css';
 import zaloIcon from '../assets/zalo-icon.png';
 import bcnLogo from '../assets/bcn.png';
 import { useState, useEffect } from 'react';
-import { getStoredProducts } from '../../admin/Admin';
+import { getStoredProducts, STORAGE_KEY_PRODUCTS } from '../../admin/Admin';
 import { supabaseApi } from '../supabaseClient';
-import { ChevronLeft, ChevronRight, Sparkles, Tag, ShieldCheck, ShoppingBag, Sun, Moon } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Sparkles, Tag, ShieldCheck, ShoppingBag, Sun, Moon, Eye, EyeOff } from 'lucide-react';
 
 const loginResultStorageKey = 'zalo_login_result';
 const verifierStorageKey = (state) => `zalo_code_verifier_${state}`;
@@ -12,7 +12,13 @@ const verifierStorageKey = (state) => `zalo_code_verifier_${state}`;
 function Login() {
     const [time, setTime] = useState(new Date());
     const [products, setProducts] = useState([]);
+    const [productsLoading, setProductsLoading] = useState(true);
     const [currentSlide, setCurrentSlide] = useState(0);
+    const [loginUsername, setLoginUsername] = useState('');
+    const [loginPassword, setLoginPassword] = useState('');
+    const [loginError, setLoginError] = useState('');
+    const [loginLoading, setLoginLoading] = useState(false);
+    const [showLoginPassword, setShowLoginPassword] = useState(false);
 
     // Đồng hồ chạy
     useEffect(() => {
@@ -20,18 +26,19 @@ function Login() {
         return () => clearInterval(timer);
     }, []);
 
-    // Load danh sách sản phẩm: ưu tiên Supabase, fallback localStorage
+    // Load danh sách sản phẩm: hiện localStorage ngay, thumbnail chờ Supabase xác nhận
     useEffect(() => {
         const MAX_PRODUCTS = 5;
 
         const loadProducts = async () => {
-            // Fallback: hiện localStorage ngay lập tức
+            // Hiện localStorage ngay lập tức — card showcase không bị trống
             const localList = getStoredProducts();
             if (localList && localList.length > 0) {
                 setProducts(localList.slice(0, MAX_PRODUCTS));
             }
 
-            // Fetch từ Supabase để đồng bộ
+            // Fetch Supabase — cập nhật chính xác, tửnhide thumbnail đến khi xong
+            setProductsLoading(true);
             try {
                 const remoteProds = await supabaseApi.getProducts();
                 if (remoteProds && Array.isArray(remoteProds) && remoteProds.length > 0) {
@@ -50,11 +57,14 @@ function Login() {
                         description: p.description || ''
                     }));
                     setProducts(formatted.slice(0, MAX_PRODUCTS));
-                    // Reset slide nếu vượt giới hạn
                     setCurrentSlide(prev => Math.min(prev, Math.min(formatted.length, MAX_PRODUCTS) - 1));
+                    // Cập nhật localStorage — lần reload sau sẽ dùng data đúng, không flash
+                    try { localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(remoteProds)); } catch (_) {}
                 }
             } catch (err) {
                 console.warn('Login: lỗi fetch sản phẩm Supabase:', err);
+            } finally {
+                setProductsLoading(false);
             }
         };
 
@@ -225,6 +235,45 @@ function Login() {
         }
     };
 
+    // Đăng nhập nội bộ bằng username + password
+    const handleInternalLogin = async (e) => {
+        e.preventDefault();
+        if (!loginUsername.trim() || !loginPassword) {
+            setLoginError('Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu!');
+            return;
+        }
+        setLoginLoading(true);
+        setLoginError('');
+        try {
+            const result = await supabaseApi.loginWithAccount(loginUsername, loginPassword);
+            if (result.success) {
+                const acc = result.account;
+                // Lưu thông tin người dùng vào localStorage
+                const userObj = {
+                    id: acc.username,
+                    zalo_id: acc.username,
+                    name: acc.display_name || acc.username,
+                    avatar: '',
+                    role: acc.role,
+                    login_type: 'internal'
+                };
+                localStorage.setItem('zalo_user', JSON.stringify(userObj));
+                // Redirect theo role
+                if (acc.role === 'admin') {
+                    window.location.href = '/admin';
+                } else {
+                    window.location.href = '/user';
+                }
+            } else {
+                setLoginError(result.error || 'Đăng nhập thất bại!');
+            }
+        } catch (err) {
+            setLoginError('Lỗi kết nối. Vui lòng thử lại!');
+        } finally {
+            setLoginLoading(false);
+        }
+    };
+
     const hour = time.getHours();
 
     let welcomeDay = 0;
@@ -289,7 +338,7 @@ function Login() {
                     </p>
                 </div>
 
-                {/* Hero Showcase Card */}
+                {/* Hero Showcase Card - hiện ngay từ localStorage */}
                 {activeProd && (
                     <div className="showcase-card">
                         <div className="showcase-media-box">
@@ -420,7 +469,7 @@ function Login() {
                         <span>hoặc đăng nhập nội bộ</span>
                     </div>
 
-                    <form className="login-form-inner" onSubmit={(e) => e.preventDefault()}>
+                    <form className="login-form-inner" onSubmit={handleInternalLogin}>
                         <div className="input-group">
                             <label className="input-label" htmlFor="username">Tên đăng nhập</label>
                             <div className="input-wrapper">
@@ -430,6 +479,8 @@ function Login() {
                                     id="username"
                                     placeholder='Nhập username hoặc mã thành viên'
                                     autoComplete="username"
+                                    value={loginUsername}
+                                    onChange={e => { setLoginUsername(e.target.value); setLoginError(''); }}
                                 />
                             </div>
                         </div>
@@ -439,20 +490,37 @@ function Login() {
                                 <label className="input-label" htmlFor="password">Mật khẩu</label>
                                 <a href="#" className="forgot-link">Quên mật khẩu?</a>
                             </div>
-                            <div className="input-wrapper">
+                            <div className="input-wrapper" style={{ position: 'relative' }}>
                                 <input
-                                    type="password"
+                                    type={showLoginPassword ? 'text' : 'password'}
                                     name="password"
                                     id="password"
                                     placeholder='••••••••••••'
                                     autoComplete="current-password"
+                                    value={loginPassword}
+                                    onChange={e => { setLoginPassword(e.target.value); setLoginError(''); }}
+                                    style={{ paddingRight: '42px' }}
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowLoginPassword(p => !p)}
+                                    style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', padding: 0 }}
+                                    title={showLoginPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                                >
+                                    {showLoginPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                </button>
                             </div>
                         </div>
 
+                        {loginError && (
+                            <div style={{ color: '#f87171', fontSize: '12.5px', padding: '8px 12px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', marginTop: '-4px' }}>
+                                ⚠️ {loginError}
+                            </div>
+                        )}
+
                         <div className="btnLogin">
-                            <button className='btnLoginTag' type="submit">
-                                <span>Xác nhận đăng nhập</span>
+                            <button className='btnLoginTag' type="submit" disabled={loginLoading}>
+                                <span>{loginLoading ? 'Đang xác nhận...' : 'Xác nhận đăng nhập'}</span>
                             </button>
                         </div>
                     </form>

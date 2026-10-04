@@ -183,7 +183,7 @@ export const supabaseApi = {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/orders?${matchQuery}`, {
         method: 'PATCH',
         headers,
-        body: JSON.stringify({ status: 'CANCELLED' })
+        body: JSON.stringify({ status: 'CANCELLED', payment_status: 'CANCELLED' })
       });
       if (!res.ok) {
         const errText = await res.text();
@@ -219,6 +219,30 @@ export const supabaseApi = {
     }
   },
 
+  // Cập nhật trạng thái thanh toán của đơn hàng (PENDING | PAID)
+  async updatePaymentStatus(orderCode, orderId, paymentStatus) {
+    try {
+      const matchQuery = orderCode
+        ? `order_code=eq.${orderCode}`
+        : `id=eq.${orderId}`;
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/orders?${matchQuery}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ payment_status: paymentStatus })
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error('[Supabase] updatePaymentStatus error:', res.status, errText);
+        return false;
+      }
+      window.dispatchEvent(new Event('orders_updated'));
+      return true;
+    } catch (err) {
+      console.warn('[Supabase] updatePaymentStatus network error:', err);
+      return false;
+    }
+  },
+
   // ── QUẢN LÝ NGƯỜI DÙNG ───────────────────────────────────────────────────
 
   // Lấy tất cả users (Admin only)
@@ -242,6 +266,7 @@ export const supabaseApi = {
       name: userData.name || userData.display_name || 'Người dùng',
       avatar: userData.avatar || userData.picture || '',
       role: userData.role || 'user',
+      created_at: new Date().toISOString(),
       last_login: new Date().toISOString()
     };
     if (!payload.zalo_id) return null;
@@ -294,9 +319,21 @@ export const supabaseApi = {
     }
   },
 
-  // Lấy role của 1 user theo zalo_id
+  // Lấy role của 1 user theo zalo_id (hỗ trợ cả Zalo users và tài khoản nội bộ)
   async getUserRole(zaloId) {
     try {
+      // Thử tìm trong admin_accounts trước (tài khoản nội bộ dùng username làm zalo_id)
+      const accRes = await fetch(
+        `${SUPABASE_URL}/rest/v1/admin_accounts?username=eq.${encodeURIComponent(zaloId)}&select=role`,
+        { headers }
+      );
+      if (accRes.ok) {
+        const accData = await accRes.json();
+        if (Array.isArray(accData) && accData.length > 0) {
+          return accData[0].role;
+        }
+      }
+      // Fallback: tìm trong bảng users (tài khoản Zalo)
       const res = await fetch(
         `${SUPABASE_URL}/rest/v1/users?zalo_id=eq.${zaloId}&select=role`,
         { headers }
@@ -321,6 +358,132 @@ export const supabaseApi = {
       return res.ok;
     } catch (err) {
       console.warn('[Supabase] deleteUser network error:', err);
+      return false;
+    }
+  },
+
+  // ── TÀI KHOẢN NỘI BỘ (admin_accounts) ───────────────────────────────────
+
+  // Hash mật khẩu bằng SHA-256 (Web Crypto API, không cần thư viện ngoài)
+  async hashPassword(password) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password + 'bcn_salt_2026');
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  },
+
+  // Tạo tài khoản nội bộ mới
+  async createAccount(username, password, displayName, role = 'user') {
+    try {
+      const trimUser = username.trim().toLowerCase();
+      if (!trimUser || !password) return { success: false, error: 'Thiếu thông tin' };
+      // Kiểm tra username đã tồn tại
+      const checkRes = await fetch(
+        `${SUPABASE_URL}/rest/v1/admin_accounts?username=eq.${encodeURIComponent(trimUser)}&select=id`,
+        { headers }
+      );
+      if (checkRes.ok) {
+        const existing = await checkRes.json();
+        if (Array.isArray(existing) && existing.length > 0) {
+          return { success: false, error: 'Tên đăng nhập đã tồn tại!' };
+        }
+      }
+      const passwordHash = await this.hashPassword(password);
+      const payload = {
+        username: trimUser,
+        password_hash: passwordHash,
+        display_name: displayName || trimUser,
+        role: role,
+        created_at: new Date().toISOString()
+      };
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/admin_accounts`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        const err = await res.text();
+        console.error('[Supabase] createAccount error:', res.status, err);
+        return { success: false, error: 'Lỗi tạo tài khoản. Vui lòng thử lại!' };
+      }
+      const result = await res.json();
+      return { success: true, account: Array.isArray(result) ? result[0] : result };
+    } catch (err) {
+      console.warn('[Supabase] createAccount network error:', err);
+      return { success: false, error: 'Lỗi kết nối mạng!' };
+    }
+  },
+
+  // Xác thực đăng nhập bằng username + password
+  async loginWithAccount(username, password) {
+    try {
+      const trimUser = username.trim().toLowerCase();
+      const passwordHash = await this.hashPassword(password);
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/admin_accounts?username=eq.${encodeURIComponent(trimUser)}&password_hash=eq.${passwordHash}&select=*`,
+        { headers }
+      );
+      if (!res.ok) return { success: false, error: 'Lỗi xác thực!' };
+      const data = await res.json();
+      if (!Array.isArray(data) || data.length === 0) {
+        return { success: false, error: 'Tên đăng nhập hoặc mật khẩu không đúng!' };
+      }
+      const account = data[0];
+      // Cập nhật last_login
+      await fetch(
+        `${SUPABASE_URL}/rest/v1/admin_accounts?id=eq.${account.id}`,
+        { method: 'PATCH', headers, body: JSON.stringify({ last_login: new Date().toISOString() }) }
+      );
+      return { success: true, account };
+    } catch (err) {
+      console.warn('[Supabase] loginWithAccount error:', err);
+      return { success: false, error: 'Lỗi kết nối mạng!' };
+    }
+  },
+
+  // Lấy danh sách tất cả tài khoản nội bộ (Admin only)
+  async getAccounts() {
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/admin_accounts?select=id,username,display_name,role,avatar,created_at,last_login&order=created_at.desc`,
+        { headers }
+      );
+      if (res.ok) return await res.json();
+      console.error('[Supabase] getAccounts error:', res.status, await res.text());
+      return [];
+    } catch (err) {
+      console.warn('[Supabase] getAccounts network error:', err);
+      return [];
+    }
+  },
+
+  // Xóa tài khoản nội bộ theo id
+  async deleteAccount(id) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/admin_accounts?id=eq.${id}`, {
+        method: 'DELETE',
+        headers
+      });
+      return res.ok;
+    } catch (err) {
+      console.warn('[Supabase] deleteAccount network error:', err);
+      return false;
+    }
+  },
+
+  // Đổi mật khẩu tài khoản nội bộ
+  async changeAccountPassword(id, newPassword) {
+    try {
+      const passwordHash = await this.hashPassword(newPassword);
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/admin_accounts?id=eq.${id}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ password_hash: passwordHash })
+      });
+      return res.ok;
+    } catch (err) {
+      console.warn('[Supabase] changeAccountPassword error:', err);
       return false;
     }
   }
