@@ -805,7 +805,7 @@ function User() {
                                             />
                                             {!isCurrentlyInStock && (
                                                 <div className="card-out-overlay">
-                                                    {isStockExpired ? 'Tạm hết hàng (Hết hạn mở bán)' : 'Tạm hết hàng'}
+                                                    {isStockExpired ? 'Hết hạn mở bán' : 'Tạm hết hàng'}
                                                 </div>
                                             )}
                                             {totalImgs > 1 && (
@@ -1165,15 +1165,15 @@ function User() {
 
             {/* MODAL LỊCH SỬ ĐƠN HÀNG - 3 TABS */}
             {showOrdersModal && (() => {
-                const pendingOrders   = userOrders.filter(o => o.status !== 'CANCELLED' && o.payment_status !== 'PAID');
-                const paidOrders      = userOrders.filter(o => o.payment_status === 'PAID');
+                const pendingOrders = userOrders.filter(o => o.status !== 'CANCELLED' && o.payment_status !== 'PAID');
+                const paidOrders = userOrders.filter(o => o.payment_status === 'PAID');
                 const cancelledOrders = userOrders.filter(o => o.status === 'CANCELLED');
-                const pendingTotal    = pendingOrders.reduce((s, o) => s + Number(o.total_price || (o.price * (o.quantity || 1)) || 0), 0);
+                const pendingTotal = pendingOrders.reduce((s, o) => s + Number(o.total_price || (o.price * (o.quantity || 1)) || 0), 0);
 
                 const tabs = [
-                    { key: 'pending',   label: 'Chờ thanh toán', count: pendingOrders.length,   color: '#fbbf24', bg: 'rgba(251,191,36,0.12)' },
-                    { key: 'paid',      label: 'Đã thanh toán',  count: paidOrders.length,      color: '#34d399', bg: 'rgba(52,211,153,0.12)'  },
-                    { key: 'cancelled', label: 'Đã hủy',         count: cancelledOrders.length, color: '#f87171', bg: 'rgba(239,68,68,0.12)'   },
+                    { key: 'pending', label: 'Chờ thanh toán', count: pendingOrders.length, color: '#fbbf24', bg: 'rgba(251,191,36,0.12)' },
+                    { key: 'paid', label: 'Đã thanh toán', count: paidOrders.length, color: '#34d399', bg: 'rgba(52,211,153,0.12)' },
+                    { key: 'cancelled', label: 'Đã hủy', count: cancelledOrders.length, color: '#f87171', bg: 'rgba(239,68,68,0.12)' },
                 ];
 
                 const activeOrders = orderTab === 'pending' ? pendingOrders : orderTab === 'paid' ? paidOrders : cancelledOrders;
