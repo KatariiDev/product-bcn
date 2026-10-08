@@ -20,9 +20,14 @@ function Login() {
     const [loginLoading, setLoginLoading] = useState(false);
     const [showLoginPassword, setShowLoginPassword] = useState(false);
 
-    // Đồng hồ chạy
+    // Đồng hồ chạy & kiểm tra lỗi auth_error
     useEffect(() => {
         const timer = setInterval(() => setTime(new Date()), 1000);
+        const authErr = sessionStorage.getItem('auth_error');
+        if (authErr) {
+            setLoginError(authErr);
+            sessionStorage.removeItem('auth_error');
+        }
         return () => clearInterval(timer);
     }, []);
 

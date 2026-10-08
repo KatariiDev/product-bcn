@@ -8,10 +8,11 @@
   width: 100%;
   max-width: 100vw;
   overflow-x: hidden;
-  background-color: #0c0d0e;
+  background-color: #090a0d;
   color: #d1d5db;
   font-family: 'Montserrat', sans-serif;
-  padding: 30px;
+  padding: 0;
+  margin: 0;
 }
 
 .admin-header {
@@ -119,6 +120,57 @@
   width: 100%;
   align-items: start;
   min-width: 0;
+}
+
+.admin-product-stacked-layout {
+  display: grid !important;
+  grid-template-columns: 460px minmax(0, 1fr) !important;
+  gap: 24px !important;
+  align-items: start !important;
+  width: 100% !important;
+}
+
+.admin-product-stacked-layout .form-card {
+  position: sticky !important;
+  top: 16px !important;
+  max-height: calc(100vh - 32px) !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.admin-page.admin-light-mode .admin-product-stacked-layout .form-card {
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+
+.admin-product-stacked-layout .form-card::-webkit-scrollbar {
+  width: 5px;
+}
+
+.admin-product-stacked-layout .form-card::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+.admin-page.admin-light-mode .admin-product-stacked-layout .form-card::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.admin-product-stacked-layout .list-card {
+  min-width: 0 !important;
+}
+
+@media (max-width: 1200px) {
+  .admin-product-stacked-layout {
+    grid-template-columns: 1fr !important;
+  }
+
+  .admin-product-stacked-layout .form-card {
+    position: static !important;
+    max-height: none !important;
+    overflow-y: visible !important;
+  }
 }
 
 @media (max-width: 1180px) {
@@ -433,7 +485,7 @@
   gap: 8px;
   background: rgba(255, 255, 255, 0.08);
   border: 1px dashed rgba(255, 255, 255, 0.25);
-  padding: 8px 14px;
+  padding: 8px 12px;
   border-radius: 8px;
   color: #e5e7eb;
   font-size: 12px;
@@ -441,6 +493,8 @@
   cursor: pointer;
   transition: all 0.2s;
   width: fit-content;
+  white-space: nowrap;
+  box-sizing: border-box;
 }
 
 .btn-upload-file:hover {
@@ -571,8 +625,19 @@
 .images-action-bar {
   display: flex;
   gap: 10px;
-  flex-wrap: wrap;
   align-items: center;
+  flex-wrap: nowrap;
+  width: 100%;
+}
+
+.images-action-bar .btn-upload-file,
+.images-action-bar .btn-add-img {
+  flex: 1 1 0;
+  white-space: nowrap;
+  justify-content: center;
+  padding: 8px 12px;
+  font-size: 12px;
+  box-sizing: border-box;
 }
 
 .btn-add-img {
@@ -580,14 +645,16 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 8px 14px;
+  padding: 8px 12px;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.06);
   border: 1px dashed rgba(255, 255, 255, 0.2);
   color: #d1d5db;
   font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+  white-space: nowrap;
 }
 
 .btn-add-img:hover:not(:disabled) {
@@ -856,9 +923,10 @@
 .admin-page.admin-light-mode .btn-upload-file,
 .admin-page.admin-light-mode .btn-add-img {
   background: #ffffff !important;
-  border: 1.5px dashed #94a3b8 !important;
+  border: 1px dashed #94a3b8 !important;
   color: #1e293b !important;
   font-weight: 600 !important;
+  box-sizing: border-box !important;
 }
 
 .admin-page.admin-light-mode .btn-upload-file:hover,
@@ -1358,7 +1426,7 @@
 /* ── SMALL MOBILE (max-width: 480px) ── */
 @media (max-width: 480px) {
   .admin-page {
-    padding: 8px;
+    padding: 0;
   }
 
   .admin-card {
@@ -1433,6 +1501,588 @@
 
   .admin-user-search-wrap > div {
     max-width: 100% !important;
+  }
+}
+
+/* ==========================================================================
+   GIAO DIỆN MỚI: ASIDE BÊN TRÁI + NỘI DUNG BÊN PHẢI
+   ========================================================================== */
+.admin-layout-wrapper {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  background: #090a0d;
+}
+
+.admin-page.admin-light-mode .admin-layout-wrapper {
+  background: #f8fafc;
+}
+
+/* ASIDE SIDEBAR (CỐ ĐỊNH KHÔNG DI CHUYỂN KHI CUỘN) */
+.admin-aside {
+  width: 270px;
+  flex-shrink: 0;
+  background: rgba(16, 18, 22, 0.96);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  height: 100vh;
+  overflow-y: auto;
+  z-index: 100;
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(12px);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.admin-page.admin-light-mode .admin-aside {
+  background: #ffffff;
+  border-right-color: #e2e8f0;
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.04);
+}
+
+/* SIDEBAR BRAND (Logo + Ban Công Nghệ) */
+.aside-brand {
+  padding: 22px 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.admin-page.admin-light-mode .aside-brand {
+  border-bottom-color: #f1f5f9;
+}
+
+.aside-logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+.aside-title-text {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #ffffff;
+  line-height: 1.25;
+}
+
+.admin-page.admin-light-mode .aside-title-text {
+  color: #0f172a;
+}
+
+.aside-subtitle {
+  font-size: 11.5px;
+  color: #94a3b8;
+  font-weight: 500;
+  margin-top: 2px;
+}
+
+/* SIDEBAR NAV ITEMS */
+.aside-nav {
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.aside-nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: #94a3b8;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.aside-nav-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+}
+
+.admin-page.admin-light-mode .aside-nav-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.aside-nav-btn.active {
+  background: linear-gradient(135deg, rgba(2, 132, 199, 0.2), rgba(14, 165, 233, 0.1));
+  border-color: rgba(2, 132, 199, 0.45);
+  color: #38bdf8;
+  box-shadow: 0 4px 15px rgba(2, 132, 199, 0.15);
+}
+
+.admin-page.admin-light-mode .aside-nav-btn.active {
+  background: linear-gradient(135deg, #e0f2fe, #bae6fd);
+  border-color: #38bdf8;
+  color: #0369a1;
+}
+
+.aside-badge {
+  margin-left: auto;
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  font-weight: 700;
+}
+
+.admin-page.admin-light-mode .aside-badge {
+  background: rgba(0, 0, 0, 0.07);
+  color: #475569;
+}
+
+.aside-nav-btn.active .aside-badge {
+  background: rgba(56, 189, 248, 0.25);
+  color: #38bdf8;
+}
+
+.admin-page.admin-light-mode .aside-nav-btn.active .aside-badge {
+  background: rgba(3, 105, 161, 0.18);
+  color: #0369a1;
+}
+
+/* SIDEBAR FOOTER */
+.aside-footer {
+  padding: 16px 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-page.admin-light-mode .aside-footer {
+  border-top-color: #f1f5f9;
+}
+
+/* MAIN CONTENT AREA (BÊN PHẢI) */
+.admin-main-viewport {
+  flex: 1;
+  min-width: 0;
+  margin-left: 270px;
+  padding: 24px 32px 48px;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 900px) {
+  .admin-main-viewport {
+    margin-left: 0;
+    padding: 16px 14px 36px;
+  }
+}
+
+/* TOPBAR TRÊN MAIN CONTENT */
+.admin-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 22px;
+  background: rgba(20, 22, 26, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  margin-bottom: 24px;
+  backdrop-filter: blur(10px);
+  gap: 12px;
+}
+
+.admin-page.admin-light-mode .admin-topbar {
+  background: #ffffff;
+  border-color: #e2e8f0;
+}
+
+.admin-topbar-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+
+.admin-page.admin-light-mode .admin-topbar-title {
+  color: #0f172a;
+}
+
+/* SEARCH BAR COMMON */
+.admin-search-box {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+}
+
+.admin-search-input {
+  width: 100% !important;
+  padding: 10px 38px 10px 40px !important;
+  border-radius: 10px !important;
+  background: #101114 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: #fff !important;
+  font-size: 13.5px !important;
+  outline: none !important;
+  transition: all 0.2s ease !important;
+}
+
+.admin-search-input:focus {
+  border-color: #0284c7 !important;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.2) !important;
+}
+
+.admin-page.admin-light-mode .admin-search-input {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+.admin-page.admin-light-mode .admin-search-input:focus {
+  border-color: #0284c7 !important;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15) !important;
+}
+
+.search-icon-left {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.search-clear-btn {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+}
+
+.search-clear-btn:hover {
+  color: #fff;
+}
+
+/* PILL TABS DÀNH CHO SUB-TABS */
+.pill-tabs-nav {
+  display: flex;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 5px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  width: fit-content;
+  flex-wrap: wrap;
+}
+
+.admin-page.admin-light-mode .pill-tabs-nav {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+}
+
+.pill-tab-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pill-tab-item:hover {
+  color: #ffffff;
+}
+
+.admin-page.admin-light-mode .pill-tab-item:hover {
+  color: #0f172a;
+}
+
+.pill-tab-item.active {
+  background: #0284c7;
+  color: #ffffff;
+  box-shadow: 0 3px 10px rgba(2, 132, 199, 0.3);
+}
+
+.admin-page.admin-light-mode .pill-tab-item.active {
+  background: #0284c7;
+  color: #ffffff;
+}
+
+/* XUẤT FILE PANEL */
+.export-card-panel {
+  background: rgba(20, 22, 26, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  margin-bottom: 24px;
+}
+
+.admin-page.admin-light-mode .export-card-panel {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+}
+
+.export-control-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 20px;
+}
+
+.admin-page.admin-light-mode .export-control-bar {
+  border-bottom-color: #e2e8f0;
+}
+
+.export-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-page.admin-light-mode .export-title {
+  color: #0f172a !important;
+}
+
+.export-desc {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.admin-page.admin-light-mode .export-desc {
+  color: #64748b !important;
+}
+
+/* THỐNG KÊ NHANH XUẤT FILE - CÓ VIỀN RÕ RÀNG */
+.export-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.export-stat-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 14px 18px;
+  transition: all 0.2s ease;
+}
+
+.admin-page.admin-light-mode .export-stat-card {
+  background: #f8fafc !important;
+  border: 1.5px solid #cbd5e1 !important; /* Viền xám rõ ràng ở theme sáng */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.export-stat-label {
+  font-size: 12px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.admin-page.admin-light-mode .export-stat-label {
+  color: #64748b !important;
+  font-weight: 600;
+}
+
+.export-stat-value {
+  font-size: 20px;
+  font-weight: 800;
+  margin-top: 5px;
+}
+
+.stat-val-blue { color: #38bdf8; }
+.admin-page.admin-light-mode .stat-val-blue { color: #0284c7 !important; }
+
+.stat-val-purple { color: #a78bfa; }
+.admin-page.admin-light-mode .stat-val-purple { color: #7c3aed !important; }
+
+.stat-val-green { color: #34d399; }
+.admin-page.admin-light-mode .stat-val-green { color: #059669 !important; }
+
+.stat-val-amber { color: #fbbf24; }
+.admin-page.admin-light-mode .stat-val-amber { color: #d97706 !important; }
+
+/* TIÊU ĐỀ BẢN XEM TRƯỚC */
+.export-preview-header {
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.export-preview-title {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.admin-page.admin-light-mode .export-preview-title {
+  color: #0f172a !important; /* Đậm nét rõ ràng, không bị mờ ở theme sáng */
+}
+
+.export-preview-count {
+  font-size: 12.5px;
+  color: #94a3b8;
+}
+
+.admin-page.admin-light-mode .export-preview-count {
+  color: #64748b !important;
+}
+
+/* TIÊU ĐỀ LỊCH SỬ XUẤT FILE */
+.export-history-title {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #f1f5f9;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-page.admin-light-mode .export-history-title {
+  color: #0f172a !important; /* Đậm nét rõ ràng ở theme sáng */
+}
+
+/* KHẮC PHỤC DỒN CHỮ PHẦN SẮP XẾP XUẤT FILE */
+.export-sort-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  flex-wrap: nowrap;
+}
+
+.export-sort-label {
+  font-size: 13px !important;
+  color: #94a3b8;
+  white-space: nowrap !important;
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  line-height: 1.4 !important;
+}
+
+.admin-page.admin-light-mode .export-sort-label {
+  color: #475569 !important;
+}
+
+.export-sort-select {
+  width: auto !important;
+  min-width: 175px !important;
+  max-width: 220px !important;
+  height: 38px !important;
+  padding: 6px 36px 6px 12px !important;
+  font-size: 13px !important;
+  border-radius: 8px !important;
+  cursor: pointer;
+  white-space: nowrap !important;
+}
+
+.export-sort-order-btn {
+  height: 38px !important;
+  padding: 0 14px !important;
+  font-size: 12.5px !important;
+  white-space: nowrap !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+.export-history-box {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.admin-page.admin-light-mode .export-history-box {
+  border-top-color: #e2e8f0;
+}
+
+/* TOGGLE ASIDE FOR MOBILE */
+.aside-toggle-btn {
+  display: none;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.admin-aside-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 95;
+  backdrop-filter: blur(4px);
+}
+
+@media (max-width: 900px) {
+  .admin-aside {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    transform: translateX(-100%);
+  }
+
+  .admin-aside.open {
+    transform: translateX(0);
+  }
+
+  .aside-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .admin-aside-overlay.open {
+    display: block;
   }
 }
 

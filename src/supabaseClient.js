@@ -319,6 +319,35 @@ export const supabaseApi = {
     }
   },
 
+  // Kiểm tra tài khoản còn tồn tại trong hệ thống hay không (Zalo hoặc internal account)
+  async checkUserExists(zaloIdOrUsername) {
+    if (!zaloIdOrUsername) return false;
+    try {
+      // 1. Kiểm tra trong admin_accounts
+      const accRes = await fetch(
+        `${SUPABASE_URL}/rest/v1/admin_accounts?username=eq.${encodeURIComponent(zaloIdOrUsername)}&select=id`,
+        { headers }
+      );
+      if (accRes.ok) {
+        const accData = await accRes.json();
+        if (Array.isArray(accData) && accData.length > 0) return true;
+      }
+      // 2. Kiểm tra trong users (Zalo)
+      const userRes = await fetch(
+        `${SUPABASE_URL}/rest/v1/users?zalo_id=eq.${encodeURIComponent(zaloIdOrUsername)}&select=zalo_id`,
+        { headers }
+      );
+      if (userRes.ok) {
+        const userData = await userRes.json();
+        if (Array.isArray(userData) && userData.length > 0) return true;
+      }
+      return false;
+    } catch (err) {
+      // Lỗi mạng tạm thời, không kick user
+      return true;
+    }
+  },
+
   // Lấy role của 1 user theo zalo_id (hỗ trợ cả Zalo users và tài khoản nội bộ)
   async getUserRole(zaloId) {
     try {
@@ -455,6 +484,21 @@ export const supabaseApi = {
     } catch (err) {
       console.warn('[Supabase] getAccounts network error:', err);
       return [];
+    }
+  },
+
+  // Cập nhật quyền hạn tài khoản nội bộ (Admin only)
+  async updateAccountRole(id, role) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/admin_accounts?id=eq.${id}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ role })
+      });
+      return res.ok;
+    } catch (err) {
+      console.warn('[Supabase] updateAccountRole network error:', err);
+      return false;
     }
   },
 
