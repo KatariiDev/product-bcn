@@ -10,7 +10,10 @@ import { Toast, ConfirmModal } from '../src/components/Toast';
 function User() {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [themeMode, setThemeMode] = useState(() => localStorage.getItem('app_theme_mode') || 'auto');
+    const [themeMode, setThemeMode] = useState(() => {
+        const saved = localStorage.getItem('app_theme_mode');
+        return saved === 'light' ? 'light' : 'dark';
+    });
 
     // Quản lý Toast Thông báo & Confirm Modal tùy chỉnh
     const [toast, setToast] = useState(null);
@@ -24,7 +27,7 @@ function User() {
     };
 
     const toggleThemeMode = () => {
-        const nextMode = themeMode === 'light' ? 'dark' : themeMode === 'dark' ? 'auto' : 'light';
+        const nextMode = themeMode === 'light' ? 'dark' : 'light';
         setThemeMode(nextMode);
         localStorage.setItem('app_theme_mode', nextMode);
         window.dispatchEvent(new Event('theme_mode_changed'));
@@ -186,15 +189,27 @@ function User() {
         initUser();
     }, []);
 
-    // Polling role mỗi 12s để bắt thay đổi quyền từ Admin
+    // Polling role và kiểm tra tài khoản còn tồn tại không mỗi 5s
     useEffect(() => {
-        const pollRole = async () => {
+        const pollRoleAndAccount = async () => {
             try {
                 const savedUser = localStorage.getItem('zalo_user');
                 if (!savedUser) return;
                 const userData = JSON.parse(savedUser);
                 const zaloId = userData.id || userData.zalo_id;
                 if (!zaloId) return;
+
+                // 1. Kiểm tra tài khoản có bị xóa khỏi Supabase không
+                const exists = await supabaseApi.checkUserExists(zaloId);
+                if (!exists) {
+                    localStorage.removeItem('zalo_user');
+                    localStorage.removeItem('zalo_user_role');
+                    sessionStorage.setItem('auth_error', 'Tài khoản của bạn đã bị xóa khỏi hệ thống!');
+                    window.location.href = '/';
+                    return;
+                }
+
+                // 2. Kiểm tra role
                 const latestRole = await supabaseApi.getUserRole(zaloId);
                 const prevRole = localStorage.getItem('zalo_user_role') || 'user';
                 if (latestRole !== prevRole) {
@@ -211,7 +226,7 @@ function User() {
                 }
             } catch (_) { /* bỏ qua lỗi mạng */ }
         };
-        const interval = setInterval(pollRole, 5000);
+        const interval = setInterval(pollRoleAndAccount, 5000);
         return () => clearInterval(interval);
     }, []);
 
@@ -518,10 +533,10 @@ function User() {
                     <button
                         className="theme-toggle-btn"
                         onClick={toggleThemeMode}
-                        title={`Chế độ hiện tại: ${themeMode === 'auto' ? 'Theo thời gian thực' : themeMode === 'light' ? 'Chế độ Sáng' : 'Chế độ Tối'}`}
+                        title={`Chế độ hiện tại: ${themeMode === 'light' ? 'Chế độ Sáng' : 'Chế độ Tối'}`}
                     >
                         {themeMode === 'light' ? <Sun size={16} /> : <Moon size={16} />}
-                        <span>Theme: {themeMode === 'auto' ? 'Auto (Giờ)' : themeMode === 'light' ? 'Sáng' : 'Tối'}</span>
+                        <span>Theme: {themeMode === 'light' ? 'Sáng' : 'Tối'}</span>
                     </button>
 
                     {userRole === 'admin' && (
