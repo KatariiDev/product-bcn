@@ -470,17 +470,20 @@
 .card-out-overlay {
     position: absolute;
     inset: 0;
-    background: rgba(0, 0, 0, 0.8);
+    background: rgba(10, 12, 16, 0.85);
     color: #f87171;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 800;
     text-transform: uppercase;
-    letter-spacing: 1px;
-    backdrop-filter: blur(2px);
-    z-index: 2;
+    letter-spacing: 0.8px;
+    backdrop-filter: blur(4px);
+    z-index: 5;
+    padding: 12px;
+    text-align: center;
+    border: 1px solid rgba(248, 113, 113, 0.2);
 }
 
 .card-body {
@@ -519,7 +522,7 @@
     align-items: baseline;
     gap: 8px;
     margin-top: auto;
-    margin-bottom: 12px;
+    margin-bottom: 6px;
 }
 
 .card-price {
@@ -533,6 +536,67 @@
     font-size: 12px;
     text-decoration: line-through;
     color: #4b5563;
+}
+
+/* Badge đếm ngược trên ảnh sản phẩm (thời hạn mở bán) */
+.card-stock-timer-badge {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    background: rgba(14, 165, 233, 0.9);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(6px);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    z-index: 2;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    letter-spacing: 0.2px;
+    max-width: calc(100% - 16px);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Thanh đếm ngược Flash Sale trên thẻ sản phẩm */
+.card-discount-countdown {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    color: #fbbf24;
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    padding: 4px 9px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    font-weight: 600;
+    width: fit-content;
+    max-width: 100%;
+    box-sizing: border-box;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.countdown-pulse-dot {
+    width: 6px;
+    height: 6px;
+    min-width: 6px;
+    border-radius: 50%;
+    background-color: #f59e0b;
+    box-shadow: 0 0 6px #f59e0b;
+    animation: countdownPulse 1.5s infinite;
+}
+
+@keyframes countdownPulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.3); opacity: 0.4; }
 }
 
 .card-footer-info {
@@ -774,6 +838,104 @@
 .product-note {
     font-size: 12px;
     color: #10b981;
+}
+
+/* HỘP ĐẾM NGƯỢC THỜI HẠN Ở CỘT CHI TIẾT SẢN PHẨM */
+.detail-countdown-box {
+    margin-top: 14px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    box-sizing: border-box;
+    transition: all 0.3s ease;
+}
+
+.detail-countdown-box.discount {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(217, 119, 6, 0.06) 100%);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.detail-countdown-box.stock {
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.12) 0%, rgba(2, 132, 199, 0.06) 100%);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+}
+
+.detail-countdown-box.expired {
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(239, 68, 68, 0.3);
+    opacity: 0.85;
+}
+
+.cd-box-header {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+}
+
+.detail-countdown-box.discount .cd-box-header {
+    color: #fbbf24;
+}
+
+.detail-countdown-box.stock .cd-box-header {
+    color: #38bdf8;
+}
+
+.detail-countdown-box.expired .cd-box-header {
+    color: #f87171;
+}
+
+.cd-timer-digits {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.cd-unit {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 6px 10px;
+    min-width: 44px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.cd-unit span {
+    font-size: 17px;
+    font-weight: 800;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+}
+
+.cd-unit label {
+    font-size: 9.5px;
+    color: #94a3b8;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-top: 2px;
+}
+
+.cd-sep {
+    font-size: 16px;
+    font-weight: 800;
+    color: rgba(255, 255, 255, 0.4);
+    margin-bottom: 8px;
+}
+
+.cd-expired-note {
+    font-size: 12px;
+    color: #fca5a5;
+    margin: 0;
+    font-style: italic;
 }
 
 .product-description-text {
@@ -2154,4 +2316,136 @@
     .choice {
         flex: 1 1 calc(50% - 8px);
     }
+}
+
+/* ==========================================================================
+   ĐỒNG HỒ ĐẾM NGƯỢC GIẢM GIÁ & MỞ BÁN SẢN PHẨM (USER PAGE - MODAL CHI TIẾT)
+   ========================================================================== */
+
+/* Hộp đếm ngược lớn trong Modal Chi tiết sản phẩm */
+.detail-countdown-box {
+    margin-top: 12px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.detail-countdown-box.discount {
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+.detail-countdown-box.discount .cd-box-header {
+    color: #fbbf24;
+}
+
+.detail-countdown-box.stock {
+    background: rgba(14, 165, 233, 0.08);
+    border: 1px solid rgba(14, 165, 233, 0.25);
+}
+
+.detail-countdown-box.stock .cd-box-header {
+    color: #38bdf8;
+}
+
+.detail-countdown-box.expired {
+    opacity: 0.7;
+    filter: grayscale(0.5);
+}
+
+.cd-box-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+}
+
+.cd-timer-digits {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.cd-unit {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    padding: 4px 6px;
+    border-radius: 6px;
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.cd-unit span {
+    font-size: 16px;
+    font-weight: 800;
+    color: #f8fafc;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+}
+
+.cd-unit label {
+    font-size: 9.5px;
+    font-weight: 600;
+    color: #94a3b8;
+    text-transform: uppercase;
+    margin-top: 2px;
+}
+
+.cd-sep {
+    font-size: 16px;
+    font-weight: 800;
+    color: #64748b;
+    margin-top: -6px;
+}
+
+.cd-expired-note {
+    font-size: 12px;
+    color: #94a3b8;
+    margin: 0;
+    font-style: italic;
+}
+
+/* Light Mode Overrides cho đồng hồ đếm ngược */
+.user-page.user-light-mode .detail-countdown-box.discount {
+    background: #fef3c7;
+    border-color: #fde68a;
+}
+
+.user-page.user-light-mode .detail-countdown-box.discount .cd-box-header {
+    color: #b45309;
+}
+
+.user-page.user-light-mode .detail-countdown-box.stock {
+    background: #e0f2fe;
+    border-color: #bae6fd;
+}
+
+.user-page.user-light-mode .detail-countdown-box.stock .cd-box-header {
+    color: #0369a1;
+}
+
+.user-page.user-light-mode .cd-unit {
+    background: #ffffff;
+    border-color: rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.user-page.user-light-mode .cd-unit span {
+    color: #0f172a;
+}
+
+.user-page.user-light-mode .cd-unit label {
+    color: #64748b;
+}
+
+.user-page.user-light-mode .cd-sep {
+    color: #94a3b8;
 }

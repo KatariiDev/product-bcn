@@ -1,15 +1,49 @@
 import { useEffect, useState } from "react";
 import "./User.css";
-import { LogOut, Filter, Search, ShoppingBag, Check, Shield, Layers, ChevronRight, ChevronLeft, X, Sparkles, Phone, Mail, MapPin, Heart, ExternalLink, Sun, Moon, ClipboardList, Clock, CreditCard, Banknote, CheckCircle2 } from 'lucide-react';
+import { LogOut, Filter, Search, ShoppingBag, Check, Shield, Layers, ChevronRight, ChevronLeft, X, Sparkles, Phone, Mail, MapPin, Heart, ExternalLink, Sun, Moon, ClipboardList, Clock, CreditCard, Banknote, CheckCircle2, Timer, AlertTriangle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import bcn from '../src/assets/bcn.png';
-import { getStoredProducts, STORAGE_KEY_PRODUCTS, saveStoredProducts } from '../admin/Admin';
+import { getStoredProducts, STORAGE_KEY_PRODUCTS, saveStoredProducts, removeVietnameseTones } from '../admin/Admin';
 import { supabaseApi } from '../src/supabaseClient';
 import { Toast, ConfirmModal } from '../src/components/Toast';
+
+// Hàm tính toán thời gian đếm ngược (trả về { isExpired, days, hours, minutes, seconds, text })
+export const getCountdownInfo = (expiresAt, now = new Date()) => {
+    if (!expiresAt) return null;
+    const target = new Date(expiresAt).getTime();
+    const current = now instanceof Date ? now.getTime() : new Date(now).getTime();
+    const diff = target - current;
+
+    if (diff <= 0) {
+        return { isExpired: true, days: 0, hours: 0, minutes: 0, seconds: 0, text: 'Đã hết hạn' };
+    }
+
+    const seconds = Math.floor((diff / 1000) % 60);
+    const minutes = Math.floor((diff / (1000 * 60)) % 60);
+    const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+
+    const pad = (n) => String(n).padStart(2, '0');
+    let text = '';
+    if (days > 0) {
+        text = `${days}n ${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+    } else {
+        text = `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+    }
+
+    return { isExpired: false, days, hours, minutes, seconds, text };
+};
 
 function User() {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [currentTime, setCurrentTime] = useState(new Date());
+
+    // Cập nhật currentTime mỗi 1 giây để thời gian đếm ngược nhảy theo từng giây thực
+    useEffect(() => {
+        const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+        return () => clearInterval(timer);
+    }, []);
     const [themeMode, setThemeMode] = useState(() => {
         const saved = localStorage.getItem('app_theme_mode');
         return saved === 'light' ? 'light' : 'dark';
@@ -117,9 +151,13 @@ function User() {
                     category: p.category,
                     price: Math.round(Number(p.price)),
                     oldPrice: p.old_price ? Math.round(Number(p.old_price)) : null,
+                    hasDiscountExpiry: Boolean(p.hasDiscountExpiry || p.has_discount_expiry || p.discountExpiresAt || p.discount_expires_at),
+                    discountExpiresAt: p.discountExpiresAt || p.discount_expires_at || null,
                     sizes: Array.isArray(p.sizes) ? p.sizes : ['S', 'M', 'L', 'XL'],
                     genders: Array.isArray(p.genders) ? p.genders : ['Male', 'Female'],
                     inStock: p.in_stock !== false,
+                    hasStockExpiry: Boolean(p.hasStockExpiry || p.has_stock_expiry || p.stockExpiresAt || p.stock_expires_at),
+                    stockExpiresAt: p.stockExpiresAt || p.stock_expires_at || null,
                     badge: p.badge || '',
                     image: p.image || bcn,
                     images: (() => {
@@ -325,28 +363,63 @@ function User() {
 
     // Lọc sản phẩm
     const filteredProducts = products.filter((item) => {
-        // Tìm kiếm theo tên / tag / mô tả
-        const matchesQuery = !searchQuery ||
-            item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            (item.tag && item.tag.toLowerCase().includes(searchQuery.toLowerCase())) ||
-            (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
+        // Tìm kiếm theo tên / tag / mô tả / danh mục (hỗ trợ cả tiếng Việt không dấu & có dấu)
+        let matchesQuery = true;
+        if (searchQuery.trim()) {
+            const qRaw = searchQuery.trim().toLowerCase();
+            const qNorm = removeVietnameseTones(searchQuery);
+
+            const nameRaw = (item.name || '').toLowerCase();
+            const nameNorm = removeVietnameseTones(item.name);
+
+            const tagRaw = (item.tag || '').toLowerCase();
+            const tagNorm = removeVietnameseTones(item.tag);
+
+            const descRaw = (item.description || '').toLowerCase();
+            const descNorm = removeVietnameseTones(item.description);
+
+            const catRaw = (item.category || '').toLowerCase();
+            const catNorm = removeVietnameseTones(item.category);
+
+            matchesQuery =
+                nameRaw.includes(qRaw) ||
+                nameNorm.includes(qNorm) ||
+                tagRaw.includes(qRaw) ||
+                tagNorm.includes(qNorm) ||
+                descRaw.includes(qRaw) ||
+                descNorm.includes(qNorm) ||
+                catRaw.includes(qRaw) ||
+                catNorm.includes(qNorm);
+        }
+
+        // Tính toán hạn khuyến mãi & hạn mở bán tại thời điểm thực tế
+        const isStockExpired = item.hasStockExpiry && item.stockExpiresAt
+            ? new Date(item.stockExpiresAt).getTime() <= currentTime.getTime()
+            : false;
+        const effectiveInStock = item.inStock && !isStockExpired;
+
+        const isDiscountExpired = item.hasDiscountExpiry && item.discountExpiresAt
+            ? new Date(item.discountExpiresAt).getTime() <= currentTime.getTime()
+            : false;
+        // Hết hạn khuyến mại thì quay về giá gốc (item.oldPrice), còn trong hạn thì dùng giá ưu đãi (item.price)
+        const effectivePrice = (isDiscountExpired && item.oldPrice) ? item.oldPrice : item.price;
 
         // Lọc danh mục
         const matchesCategory = selectedCategory === "all" || item.category === selectedCategory;
 
-        // Lọc trạng thái
+        // Lọc trạng thái (khi hết hạn mở bán thì tự động rơi vào Tạm hết hàng)
         const matchesStatus = statusFilter === "all" ||
-            (statusFilter === "inStock" && item.inStock) ||
-            (statusFilter === "outOfStock" && !item.inStock);
+            (statusFilter === "inStock" && effectiveInStock) ||
+            (statusFilter === "outOfStock" && !effectiveInStock);
 
         // Lọc theo khoảng giá
         let matchesPrice = true;
         if (priceRange === "under300") {
-            matchesPrice = item.price < 300000;
+            matchesPrice = effectivePrice < 300000;
         } else if (priceRange === "300to500") {
-            matchesPrice = item.price >= 300000 && item.price <= 500000;
+            matchesPrice = effectivePrice >= 300000 && effectivePrice <= 500000;
         } else if (priceRange === "over500") {
-            matchesPrice = item.price > 500000;
+            matchesPrice = effectivePrice > 500000;
         }
 
         return matchesQuery && matchesCategory && matchesStatus && matchesPrice;
@@ -355,7 +428,12 @@ function User() {
     const handlePurchase = async () => {
         if (!selectedProduct) return;
 
-        if (!selectedProduct.inStock) {
+        // Kiểm tra xem sản phẩm có bị hết hạn mở bán không (hết hạn -> Tạm hết hàng)
+        const isStockExpired = selectedProduct.hasStockExpiry && selectedProduct.stockExpiresAt
+            ? new Date(selectedProduct.stockExpiresAt).getTime() <= Date.now()
+            : false;
+
+        if (isStockExpired || !selectedProduct.inStock) {
             showToast("Sản phẩm hiện đang tạm hết hàng!", 'warning', 'Tạm hết hàng');
             return;
         }
@@ -372,8 +450,16 @@ function User() {
 
         setIsSubmitting(true);
 
+        // Giá áp dụng: Nếu hết hạn khuyến mãi thì quay trở về giá gốc (oldPrice)
+        const isDiscountExpired = selectedProduct.hasDiscountExpiry && selectedProduct.discountExpiresAt
+            ? new Date(selectedProduct.discountExpiresAt).getTime() <= Date.now()
+            : false;
+        const currentActivePrice = (isDiscountExpired && selectedProduct.oldPrice)
+            ? selectedProduct.oldPrice
+            : selectedProduct.price;
+
         const orderCode = Number(String(Date.now()).slice(-6));
-        const totalAmount = selectedProduct.price * count;
+        const totalAmount = currentActivePrice * count;
 
         const orderData = {
             orderCode: orderCode,
@@ -384,7 +470,7 @@ function User() {
             gender: gender,
             size: size,
             quantity: count,
-            price: selectedProduct.price,
+            price: currentActivePrice,
             totalPrice: totalAmount,
             description: `BCN ${size} ${orderCode}`.slice(0, 25),
             returnUrl: `${window.location.origin}/user?payment=success&orderCode=${orderCode}`,
@@ -685,10 +771,25 @@ function User() {
                                 const primaryImg = validImages[0] || item.image || bcn;
                                 const totalImgs = validImages.length;
 
+                                // Tính toán thời gian đếm ngược giảm giá & còn hàng
+                                const discountCd = item.hasDiscountExpiry && item.discountExpiresAt
+                                    ? getCountdownInfo(item.discountExpiresAt, currentTime)
+                                    : null;
+                                const stockCd = item.hasStockExpiry && item.stockExpiresAt
+                                    ? getCountdownInfo(item.stockExpiresAt, currentTime)
+                                    : null;
+
+                                // Kiểm tra hết hạn: nếu hết hạn mở bán thì coi như hết hàng
+                                const isStockExpired = stockCd && stockCd.isExpired;
+                                const isCurrentlyInStock = item.inStock && !isStockExpired;
+
+                                // Nếu hết hạn giảm giá thì không hiện oldPrice
+                                const isDiscountActive = item.oldPrice && (!discountCd || !discountCd.isExpired);
+
                                 return (
                                     <div
                                         key={item.id}
-                                        className={`product-card ${isSelected ? 'active' : ''} ${!item.inStock ? 'is-out' : ''}`}
+                                        className={`product-card ${isSelected ? 'active' : ''} ${!isCurrentlyInStock ? 'is-out' : ''}`}
                                         onClick={() => setSelectedProduct(item)}
                                     >
                                         {item.badge && (
@@ -702,29 +803,47 @@ function User() {
                                                 alt={item.name}
                                                 onError={(e) => { e.target.onerror = null; e.target.src = bcn; }}
                                             />
-                                            {!item.inStock && (
-                                                <div className="card-out-overlay">Tạm hết hàng</div>
+                                            {!isCurrentlyInStock && (
+                                                <div className="card-out-overlay">
+                                                    {isStockExpired ? 'Tạm hết hàng (Hết hạn mở bán)' : 'Tạm hết hàng'}
+                                                </div>
                                             )}
                                             {totalImgs > 1 && (
                                                 <span className="card-img-badge">{totalImgs} ảnh</span>
+                                            )}
+                                            {/* Badge đếm ngược mở bán (nếu có hạn) */}
+                                            {stockCd && !stockCd.isExpired && item.inStock && (
+                                                <span className="card-stock-timer-badge" title="Thời gian còn lại để đặt mua sản phẩm">
+                                                    <Timer size={11} /> Còn {stockCd.text}
+                                                </span>
                                             )}
                                         </div>
                                         <div className="card-body">
                                             <span className="card-tag">{item.tag || 'BCN Collection'}</span>
                                             <h3 className="card-title">{item.name}</h3>
+
                                             <div className="card-price-row">
                                                 <span className="card-price">
-                                                    {item.price?.toLocaleString('vi-VN')} đ
+                                                    {(isDiscountActive ? item.price : (item.oldPrice || item.price))?.toLocaleString('vi-VN')} đ
                                                 </span>
-                                                {item.oldPrice && (
+                                                {isDiscountActive && item.oldPrice && (
                                                     <span className="card-old-price">
                                                         {item.oldPrice?.toLocaleString('vi-VN')} đ
                                                     </span>
                                                 )}
                                             </div>
+
+                                            {/* Đếm ngược giảm giá có thời hạn */}
+                                            {discountCd && !discountCd.isExpired && (
+                                                <div className="card-discount-countdown" title="Ưu đãi giảm giá có thời hạn">
+                                                    <span className="countdown-pulse-dot"></span>
+                                                    <span>Flash Sale: <strong>{discountCd.text}</strong></span>
+                                                </div>
+                                            )}
+
                                             <div className="card-footer-info">
-                                                <span className={`stock-indicator ${item.inStock ? 'instock' : 'outstock'}`}>
-                                                    {item.inStock ? '• Còn hàng' : '• Hết hàng'}
+                                                <span className={`stock-indicator ${isCurrentlyInStock ? 'instock' : 'outstock'}`}>
+                                                    {isCurrentlyInStock ? '• Còn hàng' : isStockExpired ? '• Hết hạn mở bán' : '• Hết hàng'}
                                                 </span>
                                                 <span className="card-sizes">
                                                     {(item.sizes || ['S', 'M', 'L']).slice(0, 3).join('/')}
@@ -785,24 +904,88 @@ function User() {
                                 )}
                             </div>
 
-                            <div className="pro-section1">
-                                <p className="product-tag">{selectedProduct.tag || "BCN Techwear"}</p>
-                                <h1 className="product-name">{selectedProduct.name}</h1>
-                                <div className="price-container">
-                                    <span className="product-price">
-                                        {selectedProduct.price?.toLocaleString('vi-VN')} đ
-                                    </span>
-                                    {selectedProduct.oldPrice && (
-                                        <span className="product-old-price">
-                                            {selectedProduct.oldPrice?.toLocaleString('vi-VN')} đ
-                                        </span>
-                                    )}
-                                </div>
-                                <p className="product-note">Miễn phí vận chuyển nội bộ BCN</p>
-                                {selectedProduct.description && (
-                                    <p className="product-description-text">{selectedProduct.description}</p>
-                                )}
-                            </div>
+                            {/* Tính toán thời gian đếm ngược cho sản phẩm đang xem */}
+                            {(() => {
+                                const detailDiscountCd = selectedProduct.hasDiscountExpiry && selectedProduct.discountExpiresAt
+                                    ? getCountdownInfo(selectedProduct.discountExpiresAt, currentTime)
+                                    : null;
+                                const detailStockCd = selectedProduct.hasStockExpiry && selectedProduct.stockExpiresAt
+                                    ? getCountdownInfo(selectedProduct.stockExpiresAt, currentTime)
+                                    : null;
+                                const isDetailStockExpired = detailStockCd && detailStockCd.isExpired;
+                                const isDetailInStock = selectedProduct.inStock && !isDetailStockExpired;
+                                const isDetailDiscountActive = selectedProduct.oldPrice && (!detailDiscountCd || !detailDiscountCd.isExpired);
+
+                                return (
+                                    <>
+                                        <div className="pro-section1">
+                                            <p className="product-tag">{selectedProduct.tag || "BCN Techwear"}</p>
+                                            <h1 className="product-name">{selectedProduct.name}</h1>
+                                            <div className="price-container">
+                                                <span className="product-price">
+                                                    {(isDetailDiscountActive ? selectedProduct.price : (selectedProduct.oldPrice || selectedProduct.price))?.toLocaleString('vi-VN')} đ
+                                                </span>
+                                                {isDetailDiscountActive && selectedProduct.oldPrice && (
+                                                    <span className="product-old-price">
+                                                        {selectedProduct.oldPrice?.toLocaleString('vi-VN')} đ
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            {/* Hộp đếm ngược giảm giá Flash Sale */}
+                                            {detailDiscountCd && (
+                                                <div className={`detail-countdown-box discount ${detailDiscountCd.isExpired ? 'expired' : ''}`}>
+                                                    <div className="cd-box-header">
+                                                        <Timer size={14} />
+                                                        <span>{detailDiscountCd.isExpired ? 'ƯU ĐÃI GIẢM GIÁ ĐÃ KẾT THÚC' : 'ƯU ĐÃI GIẢM GIÁ CÒN LẠI'}</span>
+                                                    </div>
+                                                    {!detailDiscountCd.isExpired ? (
+                                                        <div className="cd-timer-digits">
+                                                            <div className="cd-unit"><span>{String(detailDiscountCd.days).padStart(2, '0')}</span><label>Ngày</label></div>
+                                                            <span className="cd-sep">:</span>
+                                                            <div className="cd-unit"><span>{String(detailDiscountCd.hours).padStart(2, '0')}</span><label>Giờ</label></div>
+                                                            <span className="cd-sep">:</span>
+                                                            <div className="cd-unit"><span>{String(detailDiscountCd.minutes).padStart(2, '0')}</span><label>Phút</label></div>
+                                                            <span className="cd-sep">:</span>
+                                                            <div className="cd-unit"><span>{String(detailDiscountCd.seconds).padStart(2, '0')}</span><label>Giây</label></div>
+                                                        </div>
+                                                    ) : (
+                                                        <p className="cd-expired-note">Giá đã trở về mức tiêu chuẩn.</p>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {/* Hộp đếm ngược thời hạn mở bán còn hàng */}
+                                            {detailStockCd && (
+                                                <div className={`detail-countdown-box stock ${detailStockCd.isExpired ? 'expired' : ''}`}>
+                                                    <div className="cd-box-header">
+                                                        <Clock size={14} />
+                                                        <span>{detailStockCd.isExpired ? 'THỜI HẠN MỞ BÁN ĐÃ KẾT THÚC' : 'THỜI HẠN MỞ BÁN CÒN LẠI'}</span>
+                                                    </div>
+                                                    {!detailStockCd.isExpired ? (
+                                                        <div className="cd-timer-digits">
+                                                            <div className="cd-unit"><span>{String(detailStockCd.days).padStart(2, '0')}</span><label>Ngày</label></div>
+                                                            <span className="cd-sep">:</span>
+                                                            <div className="cd-unit"><span>{String(detailStockCd.hours).padStart(2, '0')}</span><label>Giờ</label></div>
+                                                            <span className="cd-sep">:</span>
+                                                            <div className="cd-unit"><span>{String(detailStockCd.minutes).padStart(2, '0')}</span><label>Phút</label></div>
+                                                            <span className="cd-sep">:</span>
+                                                            <div className="cd-unit"><span>{String(detailStockCd.seconds).padStart(2, '0')}</span><label>Giây</label></div>
+                                                        </div>
+                                                    ) : (
+                                                        <p className="cd-expired-note">Tạm hết hàng (đã hết thời hạn mở bán).</p>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            <p className="product-note">Miễn phí vận chuyển nội bộ BCN</p>
+                                            {selectedProduct.description && (
+                                                <p className="product-description-text">{selectedProduct.description}</p>
+                                            )}
+                                        </div>
+                                    </>
+                                );
+                            })()}
 
                             <div className="pro-section2">
                                 {/* Chọn giới tính */}
@@ -865,22 +1048,40 @@ function User() {
                                 <div className="order-total-summary">
                                     <span>Tạm tính ({count} sản phẩm):</span>
                                     <span className="total-amount">
-                                        {((selectedProduct.price || 0) * count).toLocaleString('vi-VN')} đ
+                                        {(() => {
+                                            const isDiscountExpired = selectedProduct.hasDiscountExpiry && selectedProduct.discountExpiresAt
+                                                ? new Date(selectedProduct.discountExpiresAt).getTime() <= currentTime.getTime()
+                                                : false;
+                                            const activeUnit = (isDiscountExpired && selectedProduct.oldPrice)
+                                                ? selectedProduct.oldPrice
+                                                : selectedProduct.price;
+                                            return (((activeUnit || 0) * count).toLocaleString('vi-VN') + ' đ');
+                                        })()}
                                     </span>
                                 </div>
 
                                 <div className="pr-buy">
-                                    <button
-                                        className="buy-button"
-                                        onClick={handlePurchase}
-                                        disabled={!selectedProduct.inStock || isSubmitting}
-                                    >
-                                        {isSubmitting
-                                            ? "Đang gửi đơn hàng..."
-                                            : !selectedProduct.inStock
-                                                ? "Tạm hết hàng"
-                                                : "Đặt Mua Ngay"}
-                                    </button>
+                                    {(() => {
+                                        const stockCd = selectedProduct.hasStockExpiry && selectedProduct.stockExpiresAt
+                                            ? getCountdownInfo(selectedProduct.stockExpiresAt, currentTime)
+                                            : null;
+                                        const isStockExpired = stockCd && stockCd.isExpired;
+                                        const canBuy = selectedProduct.inStock && !isStockExpired;
+
+                                        return (
+                                            <button
+                                                className="buy-button"
+                                                onClick={handlePurchase}
+                                                disabled={!canBuy || isSubmitting}
+                                            >
+                                                {isSubmitting
+                                                    ? "Đang gửi đơn hàng..."
+                                                    : (isStockExpired || !selectedProduct.inStock)
+                                                        ? "Tạm hết hàng"
+                                                        : "Đặt Mua Ngay"}
+                                            </button>
+                                        );
+                                    })()}
                                 </div>
                             </div>
                         </div>
