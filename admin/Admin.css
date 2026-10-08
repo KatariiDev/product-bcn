@@ -3,6 +3,18 @@
   box-sizing: border-box;
 }
 
+/* Ẩn nút tăng giảm (spinner arrows) ở các ô input number */
+.admin-page input[type="number"]::-webkit-outer-spin-button,
+.admin-page input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.admin-page input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
 .admin-page {
   min-height: 100vh;
   width: 100%;
@@ -394,6 +406,137 @@
   box-shadow: none !important;
   padding: 0 !important;
   margin: 0 !important;
+}
+
+/* Các trường chọn thời hạn giảm giá & thời hạn còn hàng */
+.expiry-option-row {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-sizing: border-box;
+}
+
+.expiry-toggle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: #93c5fd;
+  text-transform: none !important;
+  margin: 0 !important;
+}
+
+.expiry-toggle-label input[type="checkbox"] {
+  width: 16px !important;
+  height: 16px !important;
+  accent-color: #3b82f6 !important;
+  cursor: pointer;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.expiry-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: fadeIn 0.2s ease;
+}
+
+.expiry-field-hint {
+  font-size: 11.5px;
+  color: #94a3b8;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.expiry-datetime-input {
+  flex: 1;
+  background: #0f1013 !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  color: #f1f5f9 !important;
+  padding: 6px 10px !important;
+  border-radius: 6px !important;
+  font-size: 12px !important;
+  font-family: inherit;
+  color-scheme: dark;
+}
+
+.expiry-datetime-input:focus {
+  border-color: #3b82f6 !important;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25) !important;
+}
+
+.stock-expiry-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.stock-header-row {
+  display: flex;
+  align-items: center;
+  min-height: 38px;
+}
+
+.stock-checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13.5px;
+  color: #e5e7eb;
+  text-transform: none !important;
+  margin: 0 !important;
+}
+
+.stock-checkbox-label input[type="checkbox"] {
+  width: 18px !important;
+  height: 18px !important;
+  accent-color: #ede9e3 !important;
+  cursor: pointer;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.stock-sub-row {
+  background: rgba(16, 185, 129, 0.05);
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+.stock-sub-row .expiry-toggle-label {
+  color: #6ee7b7;
+}
+
+.table-expiry-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-top: 4px;
+  white-space: nowrap;
+}
+
+.table-expiry-tag.discount {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.table-expiry-tag.stock {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
 /* KHU VỰC ẢNH CHÍNH (PRIMARY COVER) */
@@ -1502,6 +1645,108 @@
   .admin-user-search-wrap > div {
     max-width: 100% !important;
   }
+}
+
+/* ==========================================================================
+   TÙY CHỌN THỜI HẠN GIẢM GIÁ & MỞ BÁN SẢN PHẨM
+   ========================================================================== */
+.expiry-option-row {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+}
+
+.admin-page.admin-light-mode .expiry-option-row {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.expiry-toggle-label {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  color: #38bdf8 !important;
+  margin: 0 !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  user-select: none;
+}
+
+.expiry-toggle-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #0284c7;
+  cursor: pointer;
+  margin: 0;
+}
+
+.admin-page.admin-light-mode .expiry-toggle-label {
+  color: #0369a1 !important;
+}
+
+.expiry-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.expiry-field-hint {
+  font-size: 11.5px;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+.admin-page.admin-light-mode .expiry-field-hint {
+  color: #64748b;
+}
+
+.expiry-datetime-input {
+  flex: 1;
+  padding: 5px 8px !important;
+  font-size: 12px !important;
+  background: rgba(15, 23, 42, 0.8) !important;
+  border: 1px solid rgba(56, 189, 248, 0.3) !important;
+  border-radius: 6px !important;
+  color: #f1f5f9 !important;
+  outline: none;
+  font-family: inherit;
+}
+
+.admin-page.admin-light-mode .expiry-datetime-input {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+.table-expiry-tag {
+  display: inline-block;
+  margin-top: 3px;
+  font-size: 10.5px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.table-expiry-tag.discount {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.table-expiry-tag.stock {
+  background: rgba(14, 165, 233, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(14, 165, 233, 0.3);
 }
 
 /* ==========================================================================

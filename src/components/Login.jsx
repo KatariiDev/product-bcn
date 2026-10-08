@@ -54,6 +54,10 @@ function Login() {
                         category: p.category,
                         price: Number(p.price),
                         oldPrice: p.old_price ? Number(p.old_price) : null,
+                        hasDiscountExpiry: p.has_discount_expiry === true || p.hasDiscountExpiry === true,
+                        discountExpiresAt: p.discount_expires_at || p.discountExpiresAt || '',
+                        hasStockExpiry: p.has_stock_expiry === true || p.hasStockExpiry === true,
+                        stockExpiresAt: p.stock_expires_at || p.stockExpiresAt || '',
                         sizes: Array.isArray(p.sizes) ? p.sizes : ['S', 'M', 'L', 'XL'],
                         inStock: p.in_stock !== false,
                         badge: p.badge || '',
@@ -160,9 +164,16 @@ function Login() {
                     localStorage.removeItem(verifierStorageKey(state));
                     channel?.postMessage(result);
                     localStorage.setItem(loginResultStorageKey, JSON.stringify(result));
+                    localStorage.setItem('zalo_user', JSON.stringify(data.user));
 
                     window.history.replaceState({}, document.title, window.location.pathname);
-                    window.close();
+                    // Nếu là popup trên PC (có window.opener): đóng popup để tab cha reload sang /user
+                    if (window.opener && window.opener !== window) {
+                        window.close();
+                    } else {
+                        // Trên điện thoại (redirect cùng tab): chuyển thẳng sang /user
+                        window.location.href = '/user';
+                    }
                 })
                 .catch((callbackError) => {
                     const result = { success: false, error: callbackError.message };
@@ -180,7 +191,25 @@ function Login() {
         };
     }, []);
 
+    const isMobileDevice = () => {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+    };
+
     const handleZaloLogin = () => {
+        const authUrl = `${import.meta.env.VITE_API_URL}/dev/auth`;
+        const forceRelogin = localStorage.getItem('zalo_force_relogin');
+
+        // Trên điện thoại: Không dùng popup (tránh bị mở tab mới và để lại tab cũ mồ côi)
+        // Mà điều hướng trực tiếp (deeplink / full redirect) sang Zalo để mở app / xác thực
+        if (isMobileDevice()) {
+            if (forceRelogin) {
+                localStorage.removeItem('zalo_force_relogin');
+            }
+            window.location.href = authUrl;
+            return;
+        }
+
+        // Trên máy tính (PC / Desktop): Giữ nguyên popup kích thước nhỏ gọn
         const popupWidth = 480;
         const popupHeight = 720;
 
@@ -199,7 +228,8 @@ function Login() {
         );
 
         if (!loginPopup) {
-            console.error('Trình duyệt đã chặn tab đăng nhập Zalo');
+            console.error('Trình duyệt đã chặn tab đăng nhập Zalo, chuyển sang điều hướng trực tiếp');
+            window.location.href = authUrl;
             return;
         }
 
@@ -217,13 +247,9 @@ function Login() {
             }
         }, 500);
 
-        const authUrl = `${import.meta.env.VITE_API_URL}/dev/auth`;
-        const forceRelogin = localStorage.getItem('zalo_force_relogin');
-
         if (forceRelogin) {
             // Vừa logout: cần xóa session Zalo trong popup trước rồi mới đăng nhập
             localStorage.removeItem('zalo_force_relogin');
-            // Chuyển popup sang Zalo logout, sau 2.5s redirect sang auth
             loginPopup.location.href = 'https://id.zalo.me/account/logout';
             setTimeout(() => {
                 try {
@@ -231,7 +257,6 @@ function Login() {
                         loginPopup.location.href = authUrl;
                     }
                 } catch (e) {
-                    // Cross-origin expected sau khi Zalo redirect
                     try { loginPopup.location.href = authUrl; } catch (_) {}
                 }
             }, 2500);
@@ -370,7 +395,7 @@ function Login() {
                                     <span className="showcase-price">
                                         {Number(activeProd.price || 0).toLocaleString('vi-VN')} đ
                                     </span>
-                                    {activeProd.oldPrice && (
+                                    {activeProd.oldPrice && (!activeProd.hasDiscountExpiry || !activeProd.discountExpiresAt || new Date(activeProd.discountExpiresAt).getTime() > Date.now()) && (
                                         <span className="showcase-old-price">
                                             {Number(activeProd.oldPrice).toLocaleString('vi-VN')} đ
                                         </span>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './Admin.css';
-import { Plus, Trash2, Edit3, Image as ImageIcon, Save, ArrowLeft, RefreshCw, X, Upload, Star, Sun, Moon, ShoppingBag, CheckCircle, Clock, Users, Shield, UserCheck, Search, KeyRound, Eye, EyeOff, UserPlus, Lock, Package, FileSpreadsheet, Menu, ArrowUpDown, Download, History, User as UserIcon } from 'lucide-react';
+import { Plus, Trash2, Edit3, Image as ImageIcon, Save, ArrowLeft, RefreshCw, X, Upload, Star, Sun, Moon, ShoppingBag, CheckCircle, Clock, Users, Shield, UserCheck, Search, KeyRound, Eye, EyeOff, UserPlus, Lock, Package, FileSpreadsheet, Menu, ArrowUpDown, Download, History, User as UserIcon, Calendar, Timer } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import bcn from '../src/assets/bcn.png';
 import { supabaseApi } from '../src/supabaseClient';
@@ -129,6 +129,18 @@ export const saveStoredProducts = (products) => {
 };
 
 const MAX_IMAGES = 10;
+
+// Hàm chuẩn hóa chuỗi tiếng Việt thành không dấu để hỗ trợ tìm kiếm linh hoạt
+export const removeVietnameseTones = (str) => {
+  if (!str) return '';
+  return String(str)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+    .trim();
+};
 
 function Admin() {
   const [products, setProducts] = useState(() => getStoredProducts());
@@ -356,6 +368,10 @@ function Admin() {
             sizes: Array.isArray(p.sizes) ? p.sizes : ['S', 'M', 'L', 'XL'],
             genders: Array.isArray(p.genders) ? p.genders : ['Male', 'Female'],
             inStock: p.in_stock !== false,
+            hasDiscountExpiry: Boolean(p.hasDiscountExpiry || p.has_discount_expiry || p.discountExpiresAt || p.discount_expires_at),
+            discountExpiresAt: p.discountExpiresAt || p.discount_expires_at || null,
+            hasStockExpiry: Boolean(p.hasStockExpiry || p.has_stock_expiry || p.stockExpiresAt || p.stock_expires_at),
+            stockExpiresAt: p.stockExpiresAt || p.stock_expires_at || null,
             badge: p.badge || '',
             image: cover,
             images: validImgs.length > 0 ? validImgs : [cover],
@@ -557,6 +573,10 @@ function Admin() {
             sizes: Array.isArray(p.sizes) ? p.sizes : ['S', 'M', 'L', 'XL'],
             genders: Array.isArray(p.genders) ? p.genders : ['Male', 'Female'],
             inStock: p.in_stock !== false,
+            hasDiscountExpiry: Boolean(p.hasDiscountExpiry || p.has_discount_expiry || p.discountExpiresAt || p.discount_expires_at),
+            discountExpiresAt: p.discountExpiresAt || p.discount_expires_at || null,
+            hasStockExpiry: Boolean(p.hasStockExpiry || p.has_stock_expiry || p.stockExpiresAt || p.stock_expires_at),
+            stockExpiresAt: p.stockExpiresAt || p.stock_expires_at || null,
             badge: p.badge || '',
             image: cover,
             images: validImgs.length > 0 ? validImgs : [cover],
@@ -575,20 +595,66 @@ function Admin() {
     };
   }, []);
 
+  const MAX_PRODUCT_PRICE = 10000000; // 10 triệu đồng
+  const [priceWarning, setPriceWarning] = useState('');
+  const [oldPriceWarning, setOldPriceWarning] = useState('');
+
   const [formData, setFormData] = useState({
     name: '',
     tag: 'Limited Edition',
     category: 'tshirt',
     price: '',
     oldPrice: '',
+    hasDiscountExpiry: false,
+    discountExpiresAt: '',
     sizes: 'S, M, L, XL',
     genders: 'Male, Female',
     inStock: true,
+    hasStockExpiry: false,
+    stockExpiresAt: '',
     badge: '',
     primaryImage: '',
     images: [],
     description: ''
   });
+
+  const handlePriceChange = (value) => {
+    if (value === '') {
+      setFormData(prev => ({ ...prev, price: '' }));
+      setPriceWarning('');
+      return;
+    }
+    const num = Number(value);
+    if (num > MAX_PRODUCT_PRICE) {
+      setFormData(prev => ({ ...prev, price: MAX_PRODUCT_PRICE }));
+      setPriceWarning('Giá bán tối đa là 10.000.000 VNĐ (đã tự động điều chỉnh về 10 triệu)');
+    } else if (num < 0) {
+      setFormData(prev => ({ ...prev, price: 0 }));
+      setPriceWarning('');
+    } else {
+      setFormData(prev => ({ ...prev, price: value }));
+      setPriceWarning('');
+    }
+  };
+
+  const handleOldPriceChange = (value) => {
+    if (value === '') {
+      setFormData(prev => ({ ...prev, oldPrice: '' }));
+      setOldPriceWarning('');
+      return;
+    }
+    const num = Number(value);
+    if (num > MAX_PRODUCT_PRICE) {
+      setFormData(prev => ({ ...prev, oldPrice: MAX_PRODUCT_PRICE }));
+      setOldPriceWarning('Giá gốc tối đa là 10.000.000 VNĐ (đã tự động điều chỉnh về 10 triệu)');
+    } else if (num < 0) {
+      setFormData(prev => ({ ...prev, oldPrice: 0 }));
+      setOldPriceWarning('');
+    } else {
+      setFormData(prev => ({ ...prev, oldPrice: value }));
+      setOldPriceWarning('');
+    }
+  };
 
   useEffect(() => {
     saveStoredProducts(products);
@@ -637,9 +703,13 @@ function Admin() {
       category: p.category || 'tshirt',
       price: p.price,
       oldPrice: p.oldPrice || '',
+      hasDiscountExpiry: Boolean(p.hasDiscountExpiry || p.discountExpiresAt),
+      discountExpiresAt: p.discountExpiresAt ? p.discountExpiresAt.slice(0, 16) : '',
       sizes: Array.isArray(p.sizes) ? p.sizes.join(', ') : p.sizes,
       genders: Array.isArray(p.genders) ? p.genders.join(', ') : p.genders,
       inStock: p.inStock ?? true,
+      hasStockExpiry: Boolean(p.hasStockExpiry || p.stockExpiresAt),
+      stockExpiresAt: p.stockExpiresAt ? p.stockExpiresAt.slice(0, 16) : '',
       badge: p.badge || '',
       primaryImage: cover,
       images: imgList,
@@ -805,9 +875,13 @@ function Admin() {
       category: formData.category,
       price: Math.round(Number(formData.price)),
       oldPrice: formData.oldPrice ? Math.round(Number(formData.oldPrice)) : null,
+      hasDiscountExpiry: formData.hasDiscountExpiry && formData.discountExpiresAt ? true : false,
+      discountExpiresAt: formData.hasDiscountExpiry && formData.discountExpiresAt ? formData.discountExpiresAt : null,
       sizes: sizesArr.length > 0 ? sizesArr : ['S', 'M', 'L', 'XL'],
       genders: gendersArr.length > 0 ? gendersArr : ['Male', 'Female'],
       inStock: formData.inStock,
+      hasStockExpiry: formData.hasStockExpiry && formData.stockExpiresAt ? true : false,
+      stockExpiresAt: formData.hasStockExpiry && formData.stockExpiresAt ? formData.stockExpiresAt : null,
       badge: formData.badge,
       image: primary,
       images: finalImages,
@@ -836,14 +910,20 @@ function Admin() {
       category: 'tshirt',
       price: '',
       oldPrice: '',
+      hasDiscountExpiry: false,
+      discountExpiresAt: '',
       sizes: 'S, M, L, XL',
       genders: 'Male, Female',
       inStock: true,
+      hasStockExpiry: false,
+      stockExpiresAt: '',
       badge: '',
       primaryImage: '',
       images: [],
       description: ''
     });
+    setPriceWarning('');
+    setOldPriceWarning('');
   };
 
   const [themeMode, setThemeMode] = useState(() => {
@@ -1010,8 +1090,23 @@ function Admin() {
           {activeMainTab === 'products' && (() => {
             const filteredProducts = products.filter(p => {
               if (!productSearchQuery.trim()) return true;
-              const q = productSearchQuery.trim().toLowerCase();
-              return (p.name || '').toLowerCase().includes(q) || (p.category || '').toLowerCase().includes(q);
+              const qRaw = productSearchQuery.trim().toLowerCase();
+              const qNormalized = removeVietnameseTones(productSearchQuery);
+              const nameRaw = (p.name || '').toLowerCase();
+              const nameNorm = removeVietnameseTones(p.name);
+              const catRaw = (p.category || '').toLowerCase();
+              const catNorm = removeVietnameseTones(p.category);
+              const tagRaw = (p.tag || '').toLowerCase();
+              const tagNorm = removeVietnameseTones(p.tag);
+
+              return (
+                nameRaw.includes(qRaw) ||
+                nameNorm.includes(qNormalized) ||
+                catRaw.includes(qRaw) ||
+                catNorm.includes(qNormalized) ||
+                tagRaw.includes(qRaw) ||
+                tagNorm.includes(qNormalized)
+              );
             });
 
             return (
@@ -1075,24 +1170,94 @@ function Admin() {
 
                     <div className="form-row">
                       <div className="form-group">
-                        <label>GIÁ BÁN (VNĐ) *</label>
+                        <label>GIÁ BÁN (GIÁ KHUYẾN MẠI) (VNĐ) *</label>
                         <input
                           type="number"
                           value={formData.price}
-                          onChange={e => setFormData({ ...formData, price: e.target.value })}
-                          placeholder="350000"
+                          onChange={e => handlePriceChange(e.target.value)}
+                          placeholder="VD: 350000 (Giá khách mua)"
+                          max={MAX_PRODUCT_PRICE}
+                          min={0}
                           required
+                          style={priceWarning ? { borderColor: '#f59e0b' } : {}}
                         />
+                        {priceWarning && (
+                          <span style={{ fontSize: '11.5px', color: '#f59e0b', marginTop: '3px', fontWeight: 600, display: 'block' }}>
+                            ⚠️ {priceWarning}
+                          </span>
+                        )}
+                        {/* Tùy chọn đặt thời hạn mở bán */}
+                        <div className="expiry-option-row">
+                          <label className="expiry-toggle-label">
+                            <input
+                              type="checkbox"
+                              checked={formData.hasStockExpiry}
+                              onChange={e => setFormData({
+                                ...formData,
+                                hasStockExpiry: e.target.checked,
+                                stockExpiresAt: e.target.checked ? (formData.stockExpiresAt || '') : ''
+                              })}
+                            />
+                            <span>Đặt thời hạn mở bán</span>
+                          </label>
+                          {formData.hasStockExpiry && (
+                            <div className="expiry-input-wrap">
+                              <span className="expiry-field-hint">Đến:</span>
+                              <input
+                                type="datetime-local"
+                                className="expiry-datetime-input"
+                                value={formData.stockExpiresAt}
+                                onChange={e => setFormData({ ...formData, stockExpiresAt: e.target.value })}
+                                required={formData.hasStockExpiry}
+                              />
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       <div className="form-group">
-                        <label>GIÁ GỐC / KHUYẾN MÃI (VNĐ)</label>
+                        <label>GIÁ GỐC (GIÁ NIÊM YẾT) (VNĐ)</label>
                         <input
                           type="number"
                           value={formData.oldPrice}
-                          onChange={e => setFormData({ ...formData, oldPrice: e.target.value })}
-                          placeholder="420000"
+                          onChange={e => handleOldPriceChange(e.target.value)}
+                          placeholder="VD: 420000 (Giá khi hết KM)"
+                          max={MAX_PRODUCT_PRICE}
+                          min={0}
+                          style={oldPriceWarning ? { borderColor: '#f59e0b' } : {}}
                         />
+                        {oldPriceWarning && (
+                          <span style={{ fontSize: '11.5px', color: '#f59e0b', marginTop: '3px', fontWeight: 600, display: 'block' }}>
+                            ⚠️ {oldPriceWarning}
+                          </span>
+                        )}
+                        {/* Tùy chọn giảm giá có thời hạn */}
+                        <div className="expiry-option-row">
+                          <label className="expiry-toggle-label">
+                            <input
+                              type="checkbox"
+                              checked={formData.hasDiscountExpiry}
+                              onChange={e => setFormData({
+                                ...formData,
+                                hasDiscountExpiry: e.target.checked,
+                                discountExpiresAt: e.target.checked ? (formData.discountExpiresAt || '') : ''
+                              })}
+                            />
+                            <span>Giảm giá có thời hạn</span>
+                          </label>
+                          {formData.hasDiscountExpiry && (
+                            <div className="expiry-input-wrap">
+                              <span className="expiry-field-hint">Đến:</span>
+                              <input
+                                type="datetime-local"
+                                className="expiry-datetime-input"
+                                value={formData.discountExpiresAt}
+                                onChange={e => setFormData({ ...formData, discountExpiresAt: e.target.value })}
+                                required={formData.hasDiscountExpiry}
+                              />
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -1129,12 +1294,15 @@ function Admin() {
                         />
                       </div>
 
-                      <div className="form-group checkbox-group">
-                        <label>
+                      <div className="form-group">
+                        <label className="stock-checkbox-label" style={{ marginTop: '28px' }}>
                           <input
                             type="checkbox"
                             checked={formData.inStock}
-                            onChange={e => setFormData({ ...formData, inStock: e.target.checked })}
+                            onChange={e => setFormData({
+                              ...formData,
+                              inStock: e.target.checked
+                            })}
                           />
                           <span>Còn hàng (In Stock)</span>
                         </label>
@@ -1145,9 +1313,10 @@ function Admin() {
                     <div className="primary-cover-box">
                       <div className="cover-label-row">
                         <label>
-                          <Star size={15} className="star-icon" /> ẢNH HIỂN THỊ CHÍNH CỦA SẢN PHẨM
+                          {/* <Star size={15} className="star-icon" />  */}
+                          ẢNH HIỂN THỊ CHÍNH CỦA SẢN PHẨM
                         </label>
-                        <span className="primary-badge-tag">ẢNH ĐẠI DIỆN</span>
+                        {/* <span className="primary-badge-tag">ẢNH ĐẠI DIỆN</span> */}
                       </div>
 
                       <div className="cover-content-layout">
@@ -1292,15 +1461,21 @@ function Admin() {
                           className="btn-cancel"
                           onClick={() => {
                             setEditingProduct(null);
+                            setPriceWarning('');
+                            setOldPriceWarning('');
                             setFormData({
                               name: '',
                               tag: 'Limited Edition',
                               category: 'tshirt',
                               price: '',
                               oldPrice: '',
+                              hasDiscountExpiry: false,
+                              discountExpiresAt: '',
                               sizes: 'S, M, L, XL',
                               genders: 'Male, Female',
                               inStock: true,
+                              hasStockExpiry: false,
+                              stockExpiresAt: '',
                               badge: '',
                               primaryImage: '',
                               images: [],
@@ -1403,12 +1578,24 @@ function Admin() {
                                   {item.oldPrice && (
                                     <div className="table-oldprice">{item.oldPrice?.toLocaleString('vi-VN')} đ</div>
                                   )}
+                                  {item.discountExpiresAt && (
+                                    <div className="table-expiry-tag discount" title={`Giảm giá đến ${new Date(item.discountExpiresAt).toLocaleString('vi-VN')}`}>
+                                      {new Date(item.discountExpiresAt) > new Date() ? 'Hạn KM: ' + new Date(item.discountExpiresAt).toLocaleDateString('vi-VN') : 'Hết hạn KM'}
+                                    </div>
+                                  )}
                                 </div>
                               </td>
                               <td data-label="Trạng thái">
-                                <span className={`status-pill ${item.inStock ? 'in-stock' : 'out-stock'}`}>
-                                  {item.inStock ? 'Còn hàng' : 'Hết hàng'}
-                                </span>
+                                <div>
+                                  <span className={`status-pill ${item.inStock ? 'in-stock' : 'out-stock'}`}>
+                                    {item.inStock ? 'Còn hàng' : 'Hết hàng'}
+                                  </span>
+                                  {item.stockExpiresAt && item.inStock && (
+                                    <div className="table-expiry-tag stock" title={`Mở bán đến ${new Date(item.stockExpiresAt).toLocaleString('vi-VN')}`}>
+                                      {new Date(item.stockExpiresAt) > new Date() ? 'Hạn bán: ' + new Date(item.stockExpiresAt).toLocaleDateString('vi-VN') : 'Hết hạn bán'}
+                                    </div>
+                                  )}
+                                </div>
                               </td>
                               <td data-label="Thao tác">
                                 <div className="action-buttons">
@@ -1462,25 +1649,33 @@ function Admin() {
             // Lọc theo thanh tìm kiếm trên mọi trường (mã đơn, tên khách, sản phẩm, zalo id, size, số tiền, ngày...)
             const filteredOrders = tabFiltered.filter(o => {
               if (!orderSearchQuery.trim()) return true;
-              const q = orderSearchQuery.trim().toLowerCase();
+              const qRaw = orderSearchQuery.trim().toLowerCase();
+              const qNorm = removeVietnameseTones(orderSearchQuery);
+
               const codeStr = String(o.order_code || o.id || '').toLowerCase();
-              const nameStr = (o.name || '').toLowerCase();
-              const prodStr = (o.product_name || '').toLowerCase();
+              const nameRaw = (o.name || '').toLowerCase();
+              const nameNorm = removeVietnameseTones(o.name);
+              const prodRaw = (o.product_name || '').toLowerCase();
+              const prodNorm = removeVietnameseTones(o.product_name);
               const zaloStr = String(o.zalo_id || '').toLowerCase();
               const sizeStr = (o.size || '').toLowerCase();
-              const genderStr = (o.gender || '').toLowerCase();
+              const genderRaw = (o.gender === 'Female' ? 'nữ female' : 'nam male').toLowerCase();
+              const genderNorm = removeVietnameseTones(genderRaw);
               const priceStr = String(o.total_price || (o.price * o.quantity) || '').toLowerCase();
               const dateStr = o.created_at ? new Date(o.created_at).toLocaleString('vi-VN').toLowerCase() : '';
 
               return (
-                codeStr.includes(q) ||
-                nameStr.includes(q) ||
-                prodStr.includes(q) ||
-                zaloStr.includes(q) ||
-                sizeStr.includes(q) ||
-                genderStr.includes(q) ||
-                priceStr.includes(q) ||
-                dateStr.includes(q)
+                codeStr.includes(qRaw) ||
+                nameRaw.includes(qRaw) ||
+                nameNorm.includes(qNorm) ||
+                prodRaw.includes(qRaw) ||
+                prodNorm.includes(qNorm) ||
+                zaloStr.includes(qRaw) ||
+                sizeStr.includes(qRaw) ||
+                genderRaw.includes(qRaw) ||
+                genderNorm.includes(qNorm) ||
+                priceStr.includes(qRaw) ||
+                dateStr.includes(qRaw)
               );
             });
 
@@ -1599,6 +1794,24 @@ function Admin() {
                             </td>
                             <td data-label="Sản phẩm">
                               <div style={{ fontWeight: 600 }}>{ord.product_name}</div>
+                              {(() => {
+                                const matchedProd = products.find(p => p.id === ord.product_id || p.name === ord.product_name);
+                                if (!matchedProd) return null;
+                                return (
+                                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '3px' }}>
+                                    {matchedProd.discountExpiresAt && (
+                                      <span className="table-expiry-tag discount" style={{ fontSize: '10px', padding: '1px 5px' }}>
+                                        ⏱️ KM: {new Date(matchedProd.discountExpiresAt).toLocaleDateString('vi-VN')}
+                                      </span>
+                                    )}
+                                    {matchedProd.stockExpiresAt && (
+                                      <span className="table-expiry-tag stock" style={{ fontSize: '10px', padding: '1px 5px' }}>
+                                        ⏳ Bán: {new Date(matchedProd.stockExpiresAt).toLocaleDateString('vi-VN')}
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                             </td>
                             <td data-label="Phân loại">
                               <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
@@ -1664,7 +1877,7 @@ function Admin() {
                     onClick={() => setAccountSubTab('zalo')}
                   >
                     <Users size={15} />
-                    Tài khoản Zalo ({users.length})
+                    Tài khoản ({users.length})
                   </button>
                   <button
                     type="button"
@@ -1712,8 +1925,17 @@ function Admin() {
               {accountSubTab === 'zalo' && (() => {
                 const filteredUsers = users.filter(u => {
                   if (!accountSearchQuery.trim()) return true;
-                  const q = accountSearchQuery.trim().toLowerCase();
-                  return (u.name || '').toLowerCase().includes(q) || (u.zalo_id || '').toLowerCase().includes(q);
+                  const qRaw = accountSearchQuery.trim().toLowerCase();
+                  const qNorm = removeVietnameseTones(accountSearchQuery);
+                  const nameRaw = (u.name || '').toLowerCase();
+                  const nameNorm = removeVietnameseTones(u.name);
+                  const zaloStr = String(u.zalo_id || '').toLowerCase();
+
+                  return (
+                    nameRaw.includes(qRaw) ||
+                    nameNorm.includes(qNorm) ||
+                    zaloStr.includes(qRaw)
+                  );
                 });
 
                 return (
@@ -1912,8 +2134,19 @@ function Admin() {
                   {(() => {
                     const filteredAccounts = accounts.filter(a => {
                       if (!accountSearchQuery.trim()) return true;
-                      const q = accountSearchQuery.trim().toLowerCase();
-                      return (a.username || '').toLowerCase().includes(q) || (a.display_name || '').toLowerCase().includes(q);
+                      const qRaw = accountSearchQuery.trim().toLowerCase();
+                      const qNorm = removeVietnameseTones(accountSearchQuery);
+                      const userRaw = (a.username || '').toLowerCase();
+                      const userNorm = removeVietnameseTones(a.username);
+                      const displayRaw = (a.display_name || '').toLowerCase();
+                      const displayNorm = removeVietnameseTones(a.display_name);
+
+                      return (
+                        userRaw.includes(qRaw) ||
+                        userNorm.includes(qNorm) ||
+                        displayRaw.includes(qRaw) ||
+                        displayNorm.includes(qNorm)
+                      );
                     });
 
                     return (
